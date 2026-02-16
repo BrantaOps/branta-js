@@ -7,7 +7,7 @@ Package contains functionality to assist JavaScript projects with making request
 Install via npm:
 
 ```bash
-npm install branta
+npm i @branta-ops/branta
 ```
 
 ## Quick Start

@@ -1,5 +1,5 @@
 {
-  "name": "branta",
+  "name": "@branta-ops/branta",
   "version": "0.0.1",
   "description": "A JavaScript SDK for the Branta API",
   "homepage": "https://github.com/BrantaOps/branta-js#readme",
