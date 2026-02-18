@@ -1,10 +1,10 @@
-import * as branta from "branta";
+import * as branta from "../src/index.js";
 
 const client = new branta.V2BrantaClient(
   new branta.BrantaClientOptions({
     baseUrl: branta.BrantaBaseServerUrl.Localhost,
-    defaultApiKey:
-      "<api-key-here>",
+    defaultApiKey: "<default-api-key>",
+    hmacSecret: "<hmac-secret>"
   }),
 );
 

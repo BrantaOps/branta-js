@@ -49,6 +49,6 @@ if (payments.length == 0) {
  - [ ] V2 Get Payment by QR Code
  - [X] V2 Get decrypted Zero Knowledge by address and secret
  - [X] V2 Add Payment
- - [ ] V2 Payment by Parent Platform with HMAC
+ - [X] V2 Payment by Parent Platform with HMAC
  - [X] V2 Add Zero Knowledge Payment with secret
  - [X] V2 Check API key valid

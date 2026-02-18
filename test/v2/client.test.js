@@ -307,4 +307,218 @@ describe("V2BrantaClient", () => {
       );
     });
   });
+
+  describe("addPayment with HMAC", () => {
+    test("should include HMAC headers when hmacSecret is provided", async () => {
+      const payment = testPayments[0];
+      const optionsWithHmac = {
+        ...defaultOptions,
+        hmacSecret: "test-secret-key",
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await client.addPayment(payment, optionsWithHmac);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:3000/v2/payments",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-HMAC-Signature": expect.any(String),
+            "X-HMAC-Timestamp": expect.any(String),
+            Authorization: "Bearer test-api-key",
+          }),
+        }),
+      );
+    });
+
+    test("should not include HMAC headers when hmacSecret is not provided", async () => {
+      const payment = testPayments[0];
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await client.addPayment(payment);
+
+      const callArgs = mockFetch.mock.calls[0][1];
+      expect(callArgs.headers["X-HMAC-Signature"]).toBeUndefined();
+      expect(callArgs.headers["X-HMAC-Timestamp"]).toBeUndefined();
+      expect(callArgs.headers.Authorization).toBe("Bearer test-api-key");
+    });
+
+    test("should generate correct HMAC signature format", async () => {
+      const payment = testPayments[0];
+      const optionsWithHmac = {
+        ...defaultOptions,
+        hmacSecret: "test-secret-key",
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await client.addPayment(payment, optionsWithHmac);
+
+      const callArgs = mockFetch.mock.calls[0][1];
+      const signature = callArgs.headers["X-HMAC-Signature"];
+      const timestamp = callArgs.headers["X-HMAC-Timestamp"];
+
+      expect(signature).toMatch(/^[a-f0-9]{64}$/);
+
+      expect(timestamp).toMatch(/^\d{10}$/);
+
+      const now = Math.floor(Date.now() / 1000);
+      expect(parseInt(timestamp)).toBeGreaterThanOrEqual(now - 5);
+      expect(parseInt(timestamp)).toBeLessThanOrEqual(now);
+    });
+
+    test("should use hmacSecret from default options", async () => {
+      const payment = testPayments[0];
+      const clientWithHmac = new V2BrantaClient({
+        ...defaultOptions,
+        hmacSecret: "default-hmac-secret",
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await clientWithHmac.addPayment(payment);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:3000/v2/payments",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-HMAC-Signature": expect.any(String),
+            "X-HMAC-Timestamp": expect.any(String),
+          }),
+        }),
+      );
+    });
+
+    test("should override default hmacSecret with custom options", async () => {
+      const payment = testPayments[0];
+      const clientWithHmac = new V2BrantaClient({
+        ...defaultOptions,
+        hmacSecret: "default-hmac-secret",
+      });
+
+      const customOptions = {
+        hmacSecret: "custom-hmac-secret",
+      };
+
+      let capturedSignature1, capturedSignature2;
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+      await clientWithHmac.addPayment(payment);
+      capturedSignature1 =
+        mockFetch.mock.calls[0][1].headers["X-HMAC-Signature"];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+      await clientWithHmac.addPayment(payment, customOptions);
+      capturedSignature2 =
+        mockFetch.mock.calls[1][1].headers["X-HMAC-Signature"];
+
+      expect(capturedSignature1).not.toBe(capturedSignature2);
+    });
+
+    test("should generate consistent signature for same inputs", async () => {
+      const payment = testPayments[0];
+      const optionsWithHmac = {
+        ...defaultOptions,
+        hmacSecret: "consistent-secret",
+      };
+
+      const mockTimestamp = "1771444088";
+      const originalDateNow = Date.now;
+      Date.now = jest.fn(() => parseInt(mockTimestamp) * 1000);
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await client.addPayment(payment, optionsWithHmac);
+      const firstCallSignature =
+        mockFetch.mock.calls[0][1].headers["X-HMAC-Signature"];
+
+      mockFetch.mockClear();
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await client.addPayment(payment, optionsWithHmac);
+      const secondCallSignature =
+        mockFetch.mock.calls[0][1].headers["X-HMAC-Signature"];
+
+      expect(firstCallSignature).toBe(secondCallSignature);
+
+      Date.now = originalDateNow;
+    });
+  });
+
+  describe("addZKPayment with HMAC", () => {
+    test("should include HMAC headers when hmacSecret is provided", async () => {
+      const payment = {
+        destinations: [{ isZk: true, value: "plain-value" }],
+      };
+
+      const optionsWithHmac = {
+        ...defaultOptions,
+        hmacSecret: "test-secret-key",
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      await client.addZKPayment(payment, optionsWithHmac);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:3000/v2/payments",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "X-HMAC-Signature": expect.any(String),
+            "X-HMAC-Timestamp": expect.any(String),
+            Authorization: "Bearer test-api-key",
+          }),
+        }),
+      );
+    });
+
+    test("should work without HMAC headers", async () => {
+      const payment = {
+        destinations: [{ isZk: true, value: "plain-value" }],
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      });
+
+      const result = await client.addZKPayment(payment);
+
+      expect(result.payment).toBeDefined();
+      expect(result.secret).toBeDefined();
+
+      const callArgs = mockFetch.mock.calls[0][1];
+      expect(callArgs.headers["X-HMAC-Signature"]).toBeUndefined();
+      expect(callArgs.headers["X-HMAC-Timestamp"]).toBeUndefined();
+    });
+  });
 });

@@ -24,7 +24,10 @@ export class V2BrantaClient {
     for (const payment of payments) {
       for (const destination of payment.destinations) {
         if (destination.isZk === false) continue;
-        destination.value = await AesEncryption.decrypt(destination.value, secret);
+        destination.value = await AesEncryption.decrypt(
+          destination.value,
+          secret,
+        );
       }
     }
 
@@ -34,6 +37,13 @@ export class V2BrantaClient {
   async addPayment(payment, options = null) {
     const httpClient = this._createClient(options);
     this._setApiKey(httpClient, options);
+    await this._setHmacHeaders(
+      httpClient,
+      "POST",
+      "/v2/payments",
+      payment,
+      options,
+    );
 
     const response = await httpClient.post("/v2/payments", payment);
 
@@ -50,7 +60,10 @@ export class V2BrantaClient {
 
     for (const destination of payment.destinations) {
       if (destination.isZk === false) continue;
-      destination.value = await AesEncryption.encrypt(destination.value, secret);
+      destination.value = await AesEncryption.encrypt(
+        destination.value,
+        secret,
+      );
     }
 
     const responsePayment = await this.addPayment(payment, options);
@@ -118,6 +131,48 @@ export class V2BrantaClient {
     httpClient.headers = {
       ...httpClient.headers,
       Authorization: `Bearer ${apiKey}`,
+    };
+  }
+
+  async _setHmacHeaders(httpClient, method, url, body, options) {
+    const hmacSecret = options?.hmacSecret ?? this._defaultOptions?.hmacSecret;
+
+    if (!hmacSecret) {
+      return;
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const bodyString = JSON.stringify(body);
+    const message = `${method}|${httpClient.baseURL}${url}|${bodyString}|${timestamp}`;
+
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(hmacSecret);
+    const messageData = encoder.encode(message);
+
+    const cryptoKey = await crypto.subtle.importKey(
+      "raw",
+      keyData,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+
+    const signatureBuffer = await crypto.subtle.sign(
+      "HMAC",
+      cryptoKey,
+      messageData,
+    );
+
+    const signatureArray = Array.from(new Uint8Array(signatureBuffer));
+    const signature = signatureArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .toLowerCase();
+
+    httpClient.headers = {
+      ...httpClient.headers,
+      "X-HMAC-Signature": signature,
+      "X-HMAC-Timestamp": timestamp,
     };
   }
 }
