@@ -120,6 +120,23 @@ describe("V2BrantaClient", () => {
       );
     });
 
+    test("should URL-encode address with special characters in request path", async () => {
+      const address = "DtLpv1Zgf8QAcOAkmt8N3QAsxtHOlqeIBt1OQPb95TVatwznXcjFOq9rrtdaOLGgKT17siGjlToMwkAtawjp5zngIg g==";
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => testPayments,
+      } as MockResponse as Response);
+
+      await client.getPayments(address);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        `http://localhost:3000/v2/payments/${encodeURIComponent(address)}`,
+        expect.any(Object),
+      );
+    });
+
     test("should throw exception if baseUrl not set", async () => {
       client = new V2BrantaClient({} as BrantaClientOptions);
 
@@ -613,6 +630,15 @@ describe("V2BrantaClient", () => {
         "bc1qtestaddress",
         null
       );
+    });
+
+    test("should decode percent-encoded ZK key from payments/k/ URL and pass to getPayments", async () => {
+      const zkKey = "DtLpv1Zgf8QAcOAkmt8N3QAsxtHOlqeIBt1OQPb95TVatwznXcjFOq9rrtdaOLGgKT17siGjlToMwkAtawjp5zngIg g==";
+      const encodedKey = encodeURIComponent(zkKey);
+      await client.getPaymentsByQRCode(
+        `http://localhost:3000/v2/payments/k/${encodedKey}`
+      );
+      expect(getPaymentsSpy).toHaveBeenCalledWith(zkKey, null);
     });
   });
 

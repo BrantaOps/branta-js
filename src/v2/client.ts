@@ -52,7 +52,7 @@ export class V2BrantaClient {
 
   async getPayments(address: string, options: BrantaClientOptions | null = null): Promise<Payment[]> {
     const httpClient = this._createClient(options);
-    const response = await httpClient.get(`/v2/payments/${address}`);
+    const response = await httpClient.get(`/v2/payments/${encodeURIComponent(address)}`);
 
     if (!response.ok || response.headers.get("content-length") === "0") {
       return [];
@@ -153,7 +153,7 @@ export class V2BrantaClient {
       if (url.protocol === 'http:' || url.protocol === 'https:') {
         const baseUrl = this._resolveBaseUrl(options);
         if (baseUrl && new URL(baseUrl).origin === url.origin) {
-          const segments = url.pathname.split('/').filter(Boolean);
+          const segments = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
           const [version, type, id] = segments;
           if (version === 'v2' && id) {
             if (type === 'verify') return this.getPayments(id, options);
