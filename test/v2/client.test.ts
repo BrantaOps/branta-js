@@ -487,6 +487,71 @@ describe("V2BrantaClient", () => {
     });
   });
 
+  describe("getPaymentsByQRCode", () => {
+    let getPaymentsSpy: jest.SpiedFunction<typeof client.getPayments>;
+    let getZKPaymentSpy: jest.SpiedFunction<typeof client.getZKPayment>;
+
+    beforeEach(() => {
+      getPaymentsSpy = jest.spyOn(client, "getPayments").mockResolvedValue([]);
+      getZKPaymentSpy = jest.spyOn(client, "getZKPayment").mockResolvedValue([]);
+    });
+
+    test("should dispatch ZK query params to getZKPayment", async () => {
+      await client.getPaymentsByQRCode("http://example.com?branta_id=myid&branta_secret=mysecret");
+      expect(getZKPaymentSpy).toHaveBeenCalledWith("myid", "mysecret", null);
+    });
+
+    test("should dispatch /v2/verify/{id} URL to getPayments", async () => {
+      await client.getPaymentsByQRCode("http://localhost:3000/v2/verify/abc123");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("abc123", null);
+    });
+
+    test("should dispatch /v2/zk-verify/{id}#secret=s URL to getZKPayment", async () => {
+      await client.getPaymentsByQRCode("http://localhost:3000/v2/zk-verify/abc123#secret=mysecret");
+      expect(getZKPaymentSpy).toHaveBeenCalledWith("abc123", "mysecret", null);
+    });
+
+    test("should dispatch /v2/zk-verify/{id} without secret to getPayments", async () => {
+      await client.getPaymentsByQRCode("http://localhost:3000/v2/zk-verify/abc123");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("abc123", null);
+    });
+
+    test("should strip lightning: prefix and lowercase", async () => {
+      await client.getPaymentsByQRCode("lightning:LNBC1000N1TEST");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("lnbc1000n1test", null);
+    });
+
+    test("should strip bitcoin: and lowercase bc1q address", async () => {
+      await client.getPaymentsByQRCode("bitcoin:BC1QTEST");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("bc1qtest", null);
+    });
+
+    test("should strip bitcoin: and preserve case for non-bc1q address", async () => {
+      await client.getPaymentsByQRCode("bitcoin:3AbcDef");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("3AbcDef", null);
+    });
+
+    test("should lowercase bare lnbc address", async () => {
+      await client.getPaymentsByQRCode("LNBC1000N1TEST");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("lnbc1000n1test", null);
+    });
+
+    test("should lowercase bare bc1q address", async () => {
+      await client.getPaymentsByQRCode("BC1QTEST");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("bc1qtest", null);
+    });
+
+    test("should pass plain address through unchanged", async () => {
+      await client.getPaymentsByQRCode("some-payment-id");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("some-payment-id", null);
+    });
+
+    test("should trim surrounding whitespace", async () => {
+      await client.getPaymentsByQRCode("  some-payment-id  ");
+      expect(getPaymentsSpy).toHaveBeenCalledWith("some-payment-id", null);
+    });
+  });
+
   describe("addZKPayment with HMAC", () => {
     test("should include HMAC headers when hmacSecret is provided", async () => {
       const payment = {

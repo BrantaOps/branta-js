@@ -121,6 +121,42 @@ export class V2BrantaClient {
     return responsePayment;
   }
 
+  async getPaymentsByQRCode(qrText: string, options: BrantaClientOptions | null = null): Promise<Payment[]> {
+    const text = qrText.trim();
+
+    let url: URL | null = null;
+    try { url = new URL(text); } catch { /* not a URL */ }
+
+    if (url) {
+      const brantaId = url.searchParams.get('branta_id');
+      const brantaSecret = url.searchParams.get('branta_secret');
+      if (brantaId && brantaSecret) {
+        return this.getZKPayment(brantaId, brantaSecret, options);
+      }
+
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        const baseUrl = this._resolveBaseUrl(options);
+        if (baseUrl && new URL(baseUrl).origin === url.origin) {
+          const segments = url.pathname.split('/').filter(Boolean);
+          const [version, type, id] = segments;
+          if (version === 'v2' && id) {
+            if (type === 'verify') return this.getPayments(id, options);
+            if (type === 'zk-verify') {
+              const secret = new URLSearchParams(url.hash.slice(1)).get('secret');
+              return secret
+                ? this.getZKPayment(id, secret, options)
+                : this.getPayments(id, options);
+            }
+          }
+          const lastSegment = segments.at(-1);
+          if (lastSegment) return this.getPayments(lastSegment, options);
+        }
+      }
+    }
+
+    return this.getPayments(this._normalizeAddress(text), options);
+  }
+
   async isApiKeyValid(options: BrantaClientOptions | null = null): Promise<boolean> {
     const httpClient = this._createClient(options);
     this._setApiKey(httpClient, options);
@@ -128,6 +164,23 @@ export class V2BrantaClient {
     const response = await httpClient.get("/v2/api-keys/health-check");
 
     return response.ok;
+  }
+
+  private _resolveBaseUrl(options: BrantaClientOptions | null): string {
+    const baseUrl = options?.baseUrl ?? this._defaultOptions?.baseUrl;
+    return typeof baseUrl === 'string' ? baseUrl : baseUrl?.url ?? '';
+  }
+
+  private _normalizeAddress(text: string): string {
+    const lower = text.toLowerCase();
+    if (lower.startsWith('lightning:')) return lower.slice('lightning:'.length);
+    if (lower.startsWith('bitcoin:')) {
+      const addr = text.slice('bitcoin:'.length);
+      const addrLower = addr.toLowerCase();
+      return addrLower.startsWith('bc1q') || addrLower.startsWith('bcrt') ? addrLower : addr;
+    }
+    if (lower.startsWith('lnbc') || lower.startsWith('bc1q')) return lower;
+    return text;
   }
 
   private _createClient(options: BrantaClientOptions | null): HttpClient {
