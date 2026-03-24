@@ -58,10 +58,16 @@ export class V2BrantaClient {
       return [];
     }
 
-    const data = await response.json() as Payment[];
+    const data = await response.json() as PaymentResponse[];
     const baseUrl = this._resolveBaseUrl(options);
+    const baseOrigin = new URL(baseUrl).origin;
     for (const payment of data) {
       payment.verify_url = this._buildVerifyUrl(baseUrl, address);
+      if (payment.platformLogoUrl) {
+        let valid = false;
+        try { valid = new URL(payment.platformLogoUrl).origin === baseOrigin; } catch { /* invalid URL */ }
+        if (!valid) throw new BrantaPaymentException("platformLogoUrl domain does not match the configured baseUrl domain");
+      }
     }
     return data;
   }

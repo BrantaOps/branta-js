@@ -137,6 +137,46 @@ describe("V2BrantaClient", () => {
       );
     });
 
+    test("should preserve platformLogoUrl when domain matches baseUrl", async () => {
+      const address = "test-address";
+      const payments = [{ destinations: [{ value: "123", zk: false }], platformLogoUrl: "http://localhost:3000/logo.png" }];
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => payments,
+      } as MockResponse as Response);
+
+      const result = await client.getPayments(address) as any[];
+
+      expect(result[0].platformLogoUrl).toBe("http://localhost:3000/logo.png");
+    });
+
+    test("should throw BrantaPaymentException when platformLogoUrl domain does not match baseUrl", async () => {
+      const address = "test-address";
+      const payments = [{ destinations: [{ value: "123", zk: false }], platformLogoUrl: "https://evil.com/logo.png" }];
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => payments,
+      } as MockResponse as Response);
+
+      await expect(client.getPayments(address)).rejects.toThrow(BrantaPaymentException);
+      await expect(client.getPayments(address)).rejects.toThrow("platformLogoUrl domain does not match the configured baseUrl domain");
+    });
+
+    test("should throw BrantaPaymentException when platformLogoUrl is an invalid URL", async () => {
+      const address = "test-address";
+      const payments = [{ destinations: [{ value: "123", zk: false }], platformLogoUrl: "not-a-url" }];
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => payments,
+      } as MockResponse as Response);
+
+      await expect(client.getPayments(address)).rejects.toThrow(BrantaPaymentException);
+      await expect(client.getPayments(address)).rejects.toThrow("platformLogoUrl domain does not match the configured baseUrl domain");
+    });
+
     test("should throw exception if baseUrl not set", async () => {
       client = new V2BrantaClient({} as BrantaClientOptions);
 
