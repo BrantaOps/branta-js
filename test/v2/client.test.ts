@@ -1,5 +1,5 @@
 import { describe, test, expect, jest, beforeEach } from "@jest/globals";
-import V2BrantaClient from "../../src/v2/client";
+import V2BrantaClient, { Destination } from "../../src/v2/client";
 import BrantaPaymentException from "../../src/classes/brantaPaymentException";
 import BrantaClientOptions from "../../src/classes/brantaClientOptions";
 import AesEncryption from "../../src/helpers/aes";
@@ -23,11 +23,12 @@ describe("V2BrantaClient", () => {
     hmacSecret: null,
   } as BrantaClientOptions;
 
-  const testPayments = [
+  const testPayments: { destinations: Destination[] }[] = [
     {
       destinations: [
         {
           value: "123",
+          type: "bitcoin_address",
           zk: false,
         },
       ],
@@ -36,6 +37,7 @@ describe("V2BrantaClient", () => {
       destinations: [
         {
           value: "456",
+          type: "bolt11",
           zk: false,
         },
       ],
@@ -66,6 +68,22 @@ describe("V2BrantaClient", () => {
       expect(result).toHaveLength(2);
       expect(result[0].destinations[0].value).toBe("123");
       expect(result[1].destinations[0].value).toBe("456");
+    });
+
+    test("should return destination type from payments", async () => {
+      const address = "test-address";
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: {
+          get: () => "100",
+        },
+        json: async () => testPayments,
+      } as MockResponse as Response);
+
+      const result = await client.getPayments(address);
+
+      expect(result[0].destinations[0].type).toBe("bitcoin_address");
+      expect(result[1].destinations[0].type).toBe("bolt11");
     });
 
     test("should return empty list on non-success status code", async () => {
@@ -339,6 +357,24 @@ describe("V2BrantaClient", () => {
       };
 
       expect(result).toEqual(expectedResponse);
+    });
+
+    test("should include destination type in POST payload", async () => {
+      const payment = {
+        destinations: [{ value: "bc1qtest", type: "bitcoin_address" as const }],
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(payment),
+      } as MockResponse as Response);
+
+      await client.addPayment(payment);
+
+      const callBody = JSON.parse(
+        (mockFetch.mock.calls[0][1] as RequestInit).body as string,
+      );
+      expect(callBody.destinations[0].type).toBe("bitcoin_address");
     });
   });
 

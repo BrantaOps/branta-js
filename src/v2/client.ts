@@ -2,8 +2,11 @@ import AesEncryption from "../helpers/aes.js";
 import BrantaPaymentException from "../classes/brantaPaymentException.js";
 import BrantaClientOptions from "../classes/brantaClientOptions.js";
 
+export type DestinationType = 'bitcoin_address' | 'bolt11' | 'bolt12' | 'ln_url' | 'tether_address';
+
 export interface Destination {
   value: string;
+  type?: DestinationType;
   zk?: boolean;
 }
 
