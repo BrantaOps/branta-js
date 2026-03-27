@@ -155,9 +155,9 @@ describe("V2BrantaClient", () => {
       );
     });
 
-    test("should preserve platformLogoUrl when domain matches baseUrl", async () => {
+    test("should map platform_logo_url from JSON to platformLogoUrl when domain matches baseUrl", async () => {
       const address = "test-address";
-      const payments = [{ destinations: [{ value: "123", zk: false }], platformLogoUrl: "http://localhost:3000/logo.png" }];
+      const payments = [{ destinations: [{ value: "123", zk: false }], platform_logo_url: "http://localhost:3000/logo.png" }];
       mockFetch.mockResolvedValue({
         ok: true,
         headers: { get: () => "100" },
@@ -167,11 +167,12 @@ describe("V2BrantaClient", () => {
       const result = await client.getPayments(address) as any[];
 
       expect(result[0].platformLogoUrl).toBe("http://localhost:3000/logo.png");
+      expect(result[0].platform_logo_url).toBeUndefined();
     });
 
     test("should throw BrantaPaymentException when platformLogoUrl domain does not match baseUrl", async () => {
       const address = "test-address";
-      const payments = [{ destinations: [{ value: "123", zk: false }], platformLogoUrl: "https://evil.com/logo.png" }];
+      const payments = [{ destinations: [{ value: "123", zk: false }], platform_logo_url: "https://evil.com/logo.png" }];
       mockFetch.mockResolvedValue({
         ok: true,
         headers: { get: () => "100" },
@@ -184,7 +185,7 @@ describe("V2BrantaClient", () => {
 
     test("should throw BrantaPaymentException when platformLogoUrl is an invalid URL", async () => {
       const address = "test-address";
-      const payments = [{ destinations: [{ value: "123", zk: false }], platformLogoUrl: "not-a-url" }];
+      const payments = [{ destinations: [{ value: "123", zk: false }], platform_logo_url: "not-a-url" }];
       mockFetch.mockResolvedValue({
         ok: true,
         headers: { get: () => "100" },
@@ -203,7 +204,7 @@ describe("V2BrantaClient", () => {
       );
     });
 
-    test("should set verify_url on returned payments", async () => {
+    test("should set verifyUrl on returned payments", async () => {
       const address = "test-address";
       mockFetch.mockResolvedValue({
         ok: true,
@@ -213,8 +214,8 @@ describe("V2BrantaClient", () => {
 
       const result = await client.getPayments(address);
 
-      expect(result[0].verify_url).toBe("http://localhost:3000/v2/verify/test-address");
-      expect(result[1].verify_url).toBe("http://localhost:3000/v2/verify/test-address");
+      expect(result[0].verifyUrl).toBe("http://localhost:3000/v2/verify/test-address");
+      expect(result[1].verifyUrl).toBe("http://localhost:3000/v2/verify/test-address");
     });
   });
 
@@ -270,7 +271,7 @@ describe("V2BrantaClient", () => {
       expect(result[0].destinations[0].value).toBe("plain-value");
     });
 
-    test("should set ZK verify_url on returned payments", async () => {
+    test("should set ZK verifyUrl on returned payments", async () => {
       const encryptedAddress = "pQerSFV+fievHP+guYoGJjx1CzFFrYWHAgWrLhn5473Z19M6+WMScLd1hsk808AEF/x+GpZKmNacFBf5BbQ=";
       const payments = [
         { destinations: [{ zk: true, value: encryptedAddress }] },
@@ -284,7 +285,7 @@ describe("V2BrantaClient", () => {
 
       const result = await client.getZKPayment(encryptedAddress, "1234");
 
-      expect(result[0].verify_url).toBe(
+      expect(result[0].verifyUrl).toBe(
         `http://localhost:3000/v2/zk-verify/${encodeURIComponent(encryptedAddress)}#secret=1234`,
       );
     });
@@ -352,7 +353,7 @@ describe("V2BrantaClient", () => {
       const result = await client.addPayment(payment);
 
       const expectedResponse = {
-        payment: { ...payment, verify_url: 'http://localhost:3000/v2/verify/123' },
+        payment: { ...payment, verifyUrl: 'http://localhost:3000/v2/verify/123' },
         verifyLink: 'http://localhost:3000/v2/verify/123',
       };
 
@@ -406,7 +407,7 @@ describe("V2BrantaClient", () => {
       expect(result.payment).toBeDefined();
     });
 
-    test("should set ZK verify_url on returned payment", async () => {
+    test("should set ZK verifyUrl on returned payment", async () => {
       const payment = {
         destinations: [{ zk: true, value: "plain-value" }],
       };
@@ -418,10 +419,10 @@ describe("V2BrantaClient", () => {
 
       const result = await client.addZKPayment(payment);
 
-      expect(result.payment.verify_url).toMatch(
+      expect(result.payment.verifyUrl).toMatch(
         /^http:\/\/localhost:3000\/v2\/zk-verify\/.+#secret=.+$/,
       );
-      expect(result.payment.verify_url).toContain(`#secret=${result.secret}`);
+      expect(result.payment.verifyUrl).toContain(`#secret=${result.secret}`);
     });
   });
 

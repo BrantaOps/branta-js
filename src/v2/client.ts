@@ -15,13 +15,13 @@ export interface Payment {
   ttl?: number;
   description?: string;
   metadata?: Record<string, string>;
-  verify_url?: string;
+  verifyUrl?: string;
+  platformLogoUrl?: string;
 }
 
 interface PaymentResponse extends Payment {
   createdAt: Date;
   platform: string;
-  platformLogoUrl: string;
 }
 
 interface PaymentResult {
@@ -61,11 +61,26 @@ export class V2BrantaClient {
       return [];
     }
 
-    const data = await response.json() as PaymentResponse[];
+    const raw = await response.json() as (PaymentResponse & { 
+      platform_logo_url?: string;
+      verify_url?: string;
+    })[];
+
+    const data: PaymentResponse[] = raw.map(({ 
+      platform_logo_url: platformLogoUrl, 
+      verify_url: verifyUrl,
+      ...rest 
+    }) => ({
+      ...rest,
+      platformLogoUrl,
+      verifyUrl,
+    }));
+
     const baseUrl = this._resolveBaseUrl(options);
     const baseOrigin = new URL(baseUrl).origin;
+
     for (const payment of data) {
-      payment.verify_url = this._buildVerifyUrl(baseUrl, address);
+      payment.verifyUrl = this._buildVerifyUrl(baseUrl, address);
       if (payment.platformLogoUrl) {
         let valid = false;
         try { valid = new URL(payment.platformLogoUrl).origin === baseOrigin; } catch { /* invalid URL */ }
@@ -90,7 +105,7 @@ export class V2BrantaClient {
 
     const baseUrl = this._resolveBaseUrl(options);
     for (const payment of payments) {
-      payment.verify_url = this._buildVerifyUrl(baseUrl, address, secret);
+      payment.verifyUrl = this._buildVerifyUrl(baseUrl, address, secret);
     }
 
     return payments;
@@ -116,7 +131,7 @@ export class V2BrantaClient {
     const responseBody = await response.text();
     const paymentResponse = JSON.parse(responseBody) as PaymentResponse;
 
-    paymentResponse.verify_url = this._buildVerifyUrl(httpClient.baseURL, payment.destinations[0].value);
+    paymentResponse.verifyUrl = this._buildVerifyUrl(httpClient.baseURL, payment.destinations[0].value);
     const verifyLink = httpClient.baseURL + "/v2/verify/" + encodeURIComponent(payment.destinations[0].value);
 
     return { payment: paymentResponse, verifyLink };
@@ -137,7 +152,7 @@ export class V2BrantaClient {
 
     responsePayment.secret = secret;
     responsePayment.verifyLink = responsePayment.verifyLink.replace('verify', 'zk-verify') + "#secret=" + secret;
-    responsePayment.payment.verify_url = this._buildVerifyUrl(this._resolveBaseUrl(options), payment.destinations[0].value, secret);
+    responsePayment.payment.verifyUrl = this._buildVerifyUrl(this._resolveBaseUrl(options), payment.destinations[0].value, secret);
 
     return responsePayment;
   }
