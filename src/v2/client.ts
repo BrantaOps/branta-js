@@ -17,6 +17,7 @@ export interface Payment {
   metadata?: Record<string, string>;
   verifyUrl?: string;
   platformLogoUrl?: string;
+  platformLogoLightUrl?: string;
 }
 
 interface PaymentResponse extends Payment {
@@ -61,18 +62,21 @@ export class V2BrantaClient {
       return [];
     }
 
-    const raw = await response.json() as (PaymentResponse & { 
+    const raw = await response.json() as (PaymentResponse & {
       platform_logo_url?: string;
+      platform_logo_light_url?: string;
       verify_url?: string;
     })[];
 
-    const data: PaymentResponse[] = raw.map(({ 
-      platform_logo_url: platformLogoUrl, 
+    const data: PaymentResponse[] = raw.map(({
+      platform_logo_url: platformLogoUrl,
+      platform_logo_light_url: platformLogoLightUrl,
       verify_url: verifyUrl,
-      ...rest 
+      ...rest
     }) => ({
       ...rest,
       platformLogoUrl,
+      platformLogoLightUrl,
       verifyUrl,
     }));
 
@@ -85,6 +89,11 @@ export class V2BrantaClient {
         let valid = false;
         try { valid = new URL(payment.platformLogoUrl).origin === baseOrigin; } catch { /* invalid URL */ }
         if (!valid) throw new BrantaPaymentException("platformLogoUrl domain does not match the configured baseUrl domain");
+      }
+      if (payment.platformLogoLightUrl) {
+        let valid = false;
+        try { valid = new URL(payment.platformLogoLightUrl).origin === baseOrigin; } catch { /* invalid URL */ }
+        if (!valid) throw new BrantaPaymentException("platformLogoLightUrl domain does not match the configured baseUrl domain");
       }
     }
     return data;
