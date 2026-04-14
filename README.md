@@ -68,6 +68,11 @@ await client.addPayment({
 });
 ```
 
+## Release
+ - npm login
+ - npm version major|minor|patch
+ - npm publish
+
 ## Feature Support
 
  - [X] Per Environment configuration

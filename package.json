@@ -1,6 +1,6 @@
 {
   "name": "@branta-ops/branta",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A JavaScript SDK for the Branta API",
   "homepage": "https://github.com/BrantaOps/branta-js#readme",
   "bugs": {
