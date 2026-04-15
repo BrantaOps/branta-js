@@ -18,6 +18,7 @@ import { V2BrantaClient, BrantaServerBaseUrl } from "@branta-ops/branta";
 
 const client = new V2BrantaClient({
   baseUrl: BrantaServerBaseUrl.Production,
+  privacy: 'loose',
 });
 
 await client.getPayments("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
@@ -31,6 +32,7 @@ import { V2BrantaClient, BrantaServerBaseUrl } from "@branta-ops/branta";
 const client = new V2BrantaClient({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
+  privacy: 'loose',
 });
 
 await client.addPayment({
@@ -54,6 +56,7 @@ const client = new V2BrantaClient({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
   hmacSecret: "<hmac-secret>",
+  privacy: 'loose',
 });
 
 await client.addPayment({
