@@ -744,6 +744,86 @@ describe("V2BrantaClient", () => {
       );
       expect(getPaymentsSpy).toHaveBeenCalledWith(encrypted, null);
     });
+
+    describe("zkOnly mode", () => {
+      const zkOptions = { ...defaultOptions, zkOnly: true } as BrantaClientOptions;
+
+      test("should allow ZK query param QR (branta_id + branta_secret)", async () => {
+        await client.getPaymentsByQRCode(
+          "http://example.com?branta_id=myid&branta_secret=mysecret",
+          zkOptions
+        );
+        expect(getZKPaymentSpy).toHaveBeenCalledWith("myid", "mysecret", zkOptions);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+
+      test("should allow zk-verify URL with secret", async () => {
+        await client.getPaymentsByQRCode(
+          "http://localhost:3000/v2/zk-verify/abc123#secret=mysecret",
+          zkOptions
+        );
+        expect(getZKPaymentSpy).toHaveBeenCalledWith("abc123", "mysecret", zkOptions);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+
+      test("should block plain address and return []", async () => {
+        const result = await client.getPaymentsByQRCode("some-payment-id", zkOptions);
+        expect(result).toEqual([]);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+
+      test("should block bitcoin: URI and return []", async () => {
+        const result = await client.getPaymentsByQRCode("bitcoin:BC1QTEST", zkOptions);
+        expect(result).toEqual([]);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+
+      test("should block verify URL and return []", async () => {
+        const result = await client.getPaymentsByQRCode(
+          "http://localhost:3000/v2/verify/abc123",
+          zkOptions
+        );
+        expect(result).toEqual([]);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+
+      test("should block zk-verify URL without secret and return []", async () => {
+        const result = await client.getPaymentsByQRCode(
+          "http://localhost:3000/v2/zk-verify/abc123",
+          zkOptions
+        );
+        expect(result).toEqual([]);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+
+      test("should block lightning: address and return []", async () => {
+        const result = await client.getPaymentsByQRCode("lightning:LNBC1000N1TEST", zkOptions);
+        expect(result).toEqual([]);
+        expect(getPaymentsSpy).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("getPayments with zkOnly", () => {
+    test("should throw BrantaPaymentException when zkOnly is enabled via options", async () => {
+      const zkOptions = { ...defaultOptions, zkOnly: true } as BrantaClientOptions;
+      await expect(client.getPayments("some-address", zkOptions)).rejects.toThrow(
+        BrantaPaymentException
+      );
+    });
+
+    test("should throw BrantaPaymentException when zkOnly is enabled via defaultOptions", async () => {
+      const zkClient = new V2BrantaClient({ ...defaultOptions, zkOnly: true });
+      await expect(zkClient.getPayments("some-address")).rejects.toThrow(BrantaPaymentException);
+    });
+
+    test("should not throw when zkOnly is false (default)", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+      } as MockResponse as Response);
+      const result = await client.getPayments("some-address");
+      expect(result).toEqual([]);
+    });
   });
 
   describe("addZKPayment with HMAC", () => {

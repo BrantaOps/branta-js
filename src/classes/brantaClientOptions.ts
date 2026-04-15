@@ -5,4 +5,5 @@ export default interface BrantaClientOptions {
   defaultApiKey?: string | null;
   hmacSecret?: string | null;
   timeout?: number;
+  zkOnly?: boolean;
 }

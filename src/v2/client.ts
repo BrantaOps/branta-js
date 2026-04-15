@@ -16,6 +16,7 @@ export interface Payment {
   description?: string;
   metadata?: Record<string, string>;
   verifyUrl?: string;
+  platform?: string;
   platformLogoUrl?: string;
   platformLogoLightUrl?: string;
 }
@@ -55,6 +56,14 @@ export class V2BrantaClient {
   }
 
   async getPayments(address: string, options: BrantaClientOptions | null = null): Promise<Payment[]> {
+    const zkOnly = options?.zkOnly ?? this._defaultOptions?.zkOnly ?? false;
+    if (zkOnly) {
+      throw new BrantaPaymentException("zkOnly is enabled: plain address lookups are not permitted");
+    }
+    return this._fetchPayments(address, options);
+  }
+
+  private async _fetchPayments(address: string, options: BrantaClientOptions | null = null): Promise<Payment[]> {
     const httpClient = this._createClient(options);
     const response = await httpClient.get(`/v2/payments/${encodeURIComponent(address)}`);
 
@@ -100,7 +109,7 @@ export class V2BrantaClient {
   }
 
   async getZKPayment(address: string, secret: string, options: BrantaClientOptions | null = null): Promise<Payment[]> {
-    const payments = await this.getPayments(address, options);
+    const payments = await this._fetchPayments(address, options);
 
     for (const payment of payments) {
       for (const destination of payment?.destinations || []) {
@@ -172,39 +181,46 @@ export class V2BrantaClient {
     let url: URL | null = null;
     try { url = new URL(text); } catch { /* not a URL */ }
 
-    if (url) {
-      const rawParams = new URLSearchParams(url.search.replace(/\+/g, '%2B'));
-      const brantaId = rawParams.get('branta_id');
-      const brantaSecret = rawParams.get('branta_secret');
-      if (brantaId && brantaSecret) {
-        return this.getZKPayment(brantaId, brantaSecret, options);
-      }
+    if (!url) return this._getPlainPayments(this._normalizeAddress(text), options);
 
-      if (url.protocol === 'bitcoin:') {
-        return this.getPayments(this._normalizeAddress(url.pathname), options);
-      }
+    const rawParams = new URLSearchParams(url.search.replace(/\+/g, '%2B'));
+    const brantaId = rawParams.get('branta_id');
+    const brantaSecret = rawParams.get('branta_secret');
+    if (brantaId && brantaSecret) return this.getZKPayment(brantaId, brantaSecret, options);
 
-      if (url.protocol === 'http:' || url.protocol === 'https:') {
-        const baseUrl = this._resolveBaseUrl(options);
-        if (baseUrl && new URL(baseUrl).origin === url.origin) {
-          const segments = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
-          const [version, type, id] = segments;
-          if (version === 'v2' && id) {
-            if (type === 'verify') return this.getPayments(id, options);
-            if (type === 'zk-verify') {
-              const secret = new URLSearchParams(url.hash.slice(1)).get('secret');
-              return secret
-                ? this.getZKPayment(id, secret, options)
-                : this.getPayments(id, options);
-            }
-          }
-          const lastSegment = segments.at(-1);
-          if (lastSegment) return this.getPayments(lastSegment, options);
-        }
-      }
+    if (url.protocol === 'bitcoin:') {
+      return this._getPlainPayments(this._normalizeAddress(url.pathname), options);
     }
 
-    return this.getPayments(this._normalizeAddress(text), options);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      const baseUrl = this._resolveBaseUrl(options);
+      if (!baseUrl || new URL(baseUrl).origin !== url.origin) {
+        return this._getPlainPayments(this._normalizeAddress(text), options);
+      }
+
+      const segments = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+      const [version, type, id] = segments;
+
+      if (version === 'v2' && id) {
+        if (type === 'verify') return this._getPlainPayments(id, options);
+        if (type === 'zk-verify') {
+          const secret = new URLSearchParams(url.hash.slice(1)).get('secret');
+          if (secret) return this.getZKPayment(id, secret, options);
+          return this._getPlainPayments(id, options);
+        }
+      }
+
+      const lastSegment = segments.at(-1);
+      if (lastSegment) return this._getPlainPayments(lastSegment, options);
+    }
+
+    return this._getPlainPayments(this._normalizeAddress(text), options);
+  }
+
+  private _getPlainPayments(address: string, options: BrantaClientOptions | null): Promise<Payment[]> {
+    const zkOnly = options?.zkOnly ?? this._defaultOptions?.zkOnly ?? false;
+    if (zkOnly) return Promise.resolve([]);
+    return this.getPayments(address, options);
   }
 
   async isApiKeyValid(options: BrantaClientOptions | null = null): Promise<boolean> {
