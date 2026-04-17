@@ -6,8 +6,8 @@ import { ServerEnvironment } from "./brantaServerBaseUrl.js";
  * - `'strict'` — Only ZK (zero-knowledge / encrypted) on-chain lookups are
  *   permitted. Calling `getPayments` directly will throw a
  *   `BrantaPaymentException`; plain-address branches inside
- *   `getPaymentByQrCode` will silently return `[]`. Lightning invoices and
- *   all POST operations are unaffected by this setting.
+ *   `getPaymentByQrCode` will silently return `[]`. All POST operations
+ *   are unaffected by this setting.
  *
  * - `'loose'` — Both plain and ZK on-chain lookups are allowed. No
  *   restrictions are enforced.
