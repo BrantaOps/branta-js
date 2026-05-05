@@ -1,6 +1,7 @@
 import AesEncryption from "../helpers/aes.js";
 import BrantaPaymentException from "../classes/brantaPaymentException.js";
 import BrantaClientOptions from "../classes/brantaClientOptions.js";
+import HttpClient from "./httpClient.js";
 
 export type DestinationType = 'bitcoin_address' | 'ln_address' | 'bolt11' | 'bolt12' | 'ln_url' | 'tether_address' | 'ark_address';
 
@@ -33,19 +34,6 @@ interface PaymentResult {
 
 interface ZKPaymentResult extends PaymentResult {
   secret: string;
-}
-
-interface HttpClient {
-  baseURL: string;
-  headers: Record<string, string>;
-  timeout: number;
-  get(url: string, config?: RequestConfig): Promise<Response>;
-  post(url: string, data: unknown, config?: RequestConfig): Promise<Response>;
-}
-
-interface RequestConfig {
-  headers?: Record<string, string>;
-  signal?: AbortSignal;
 }
 
 export class V2BrantaClient {
@@ -149,8 +137,8 @@ export class V2BrantaClient {
     const responseBody = await response.text();
     const paymentResponse = JSON.parse(responseBody) as PaymentResponse;
 
-    paymentResponse.verifyUrl = this._buildVerifyUrl(httpClient.baseURL, payment.destinations[0].value);
-    const verifyLink = httpClient.baseURL + "/v2/verify/" + encodeURIComponent(payment.destinations[0].value);
+    paymentResponse.verifyUrl = this._buildVerifyUrl(httpClient.baseUrl, payment.destinations[0].value);
+    const verifyLink = httpClient.baseUrl + "/v2/verify/" + encodeURIComponent(payment.destinations[0].value);
 
     return { payment: paymentResponse, verifyLink };
   }
@@ -267,56 +255,7 @@ export class V2BrantaClient {
       throw new Error("Branta: BaseUrl is a required option.");
     }
 
-    return {
-      baseURL: fullBaseUrl,
-      headers: {},
-      timeout,
-      async get(url: string, config: RequestConfig = {}): Promise<Response> {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-        try {
-          const response = await fetch(`${this.baseURL}${url}`, {
-            method: "GET",
-            headers: { ...this.headers, ...config?.headers },
-            signal: config?.signal ?? controller.signal,
-          });
-          return response;
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            throw new BrantaPaymentException('Request timeout');
-          }
-          throw error;
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      },
-      async post(url: string, data: unknown, config: RequestConfig = {}): Promise<Response> {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-        try {
-          const response = await fetch(`${this.baseURL}${url}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...this.headers,
-              ...config?.headers,
-            },
-            body: JSON.stringify(data),
-            signal: config?.signal ?? controller.signal,
-          });
-          return response;
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            throw new BrantaPaymentException('Request timeout');
-          }
-          throw error;
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      },
-    };
+    return new HttpClient(fullBaseUrl, timeout);
   }
 
   private _setApiKey(httpClient: HttpClient, options: BrantaClientOptions | null): void {
@@ -348,7 +287,7 @@ export class V2BrantaClient {
 
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const bodyString = JSON.stringify(body);
-    const message = `${method}|${httpClient.baseURL}${url}|${bodyString}|${timestamp}`;
+    const message = `${method}|${httpClient.baseUrl}${url}|${bodyString}|${timestamp}`;
 
     const encoder = new TextEncoder();
     const keyData = encoder.encode(hmacSecret);
