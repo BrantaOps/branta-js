@@ -14,33 +14,35 @@ npm i @branta-ops/branta
 
 ### For Wallets
 ```ts
-import { V2BrantaClient, BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaService } from "@branta-ops/branta/v2";
 
-const client = new V2BrantaClient({
+const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   privacy: 'loose',
 });
 
-await client.getPayments("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+await service.getPayments("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
 ```
 
 ### For Platforms
 
 ```ts
-import { V2BrantaClient, BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaService } from "@branta-ops/branta/v2";
 
-const client = new V2BrantaClient({
+const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
   privacy: 'loose',
 });
 
-await client.addPayment({
+await service.addPayment({
   description: "Testing description",
   destinations: [
     {
       value: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-      isZk: false,
+      zk: false,
     },
   ],
   ttl: 600,
@@ -50,21 +52,22 @@ await client.addPayment({
 ### For Parent Platforms
 
 ```ts
-import { V2BrantaClient, BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaService } from "@branta-ops/branta/v2";
 
-const client = new V2BrantaClient({
+const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
   hmacSecret: "<hmac-secret>",
   privacy: 'loose',
 });
 
-await client.addPayment({
+await service.addPayment({
   description: "Testing description",
   destinations: [
     {
       value: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-      isZk: false,
+      zk: false,
     },
   ],
   ttl: 600,
