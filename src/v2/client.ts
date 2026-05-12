@@ -1,6 +1,38 @@
 import BrantaPaymentException from "../classes/brantaPaymentException.js";
 import BrantaClientOptions from "../classes/brantaClientOptions.js";
-import { IBrantaClient, Payment } from "./types.js";
+import { DestinationType, IBrantaClient, Payment } from "./types.js";
+
+type RawDestination = {
+  value: string;
+  type?: string;
+  zk?: boolean;
+  zk_id?: string;
+  primary?: boolean;
+};
+
+type RawPayment = Omit<Payment, 'destinations' | 'platformLogoUrl' | 'platformLogoLightUrl' | 'verifyUrl' | 'createdAt'> & {
+  platform_logo_url?: string;
+  platform_logo_light_url?: string;
+  verify_url?: string;
+  created_at?: string;
+  destinations?: RawDestination[];
+};
+
+function mapPayment({ platform_logo_url, platform_logo_light_url, verify_url, created_at, destinations, ...rest }: RawPayment): Payment {
+  return {
+    ...rest,
+    platformLogoUrl: platform_logo_url,
+    platformLogoLightUrl: platform_logo_light_url,
+    verifyUrl: verify_url,
+    createdAt: created_at,
+    destinations: (destinations ?? []).map(({ zk_id, primary, type, ...d }) => ({
+      ...d,
+      type: type as DestinationType | undefined,
+      zkId: zk_id,
+      isPrimary: primary,
+    })),
+  };
+}
 
 interface HttpClient {
   baseURL: string;
@@ -30,39 +62,8 @@ export class BrantaClient implements IBrantaClient {
       return [];
     }
 
-    type RawDestination = {
-      value: string;
-      type?: string;
-      zk?: boolean;
-      zk_id?: string;
-      primary?: boolean;
-    };
-
-    type RawPayment = Omit<Payment, 'destinations' | 'platformLogoUrl' | 'platformLogoLightUrl' | 'verifyUrl' | 'createdAt'> & {
-      platform_logo_url?: string;
-      platform_logo_light_url?: string;
-      verify_url?: string;
-      created_at?: string;
-      destinations?: RawDestination[];
-    };
-
     const raw = await response.json() as RawPayment[];
-
-    const data: Payment[] = raw.map(({
-      platform_logo_url: platformLogoUrl,
-      platform_logo_light_url: platformLogoLightUrl,
-      verify_url: verifyUrl,
-      created_at: createdAt,
-      destinations: rawDests,
-      ...rest
-    }) => ({
-      ...rest,
-      platformLogoUrl,
-      platformLogoLightUrl,
-      verifyUrl,
-      createdAt,
-      destinations: (rawDests ?? []).map(({ zk_id: zkId, primary: isPrimary, type, ...d }) => ({ ...d, type: type as import('./types.js').DestinationType | undefined, zkId, isPrimary })),
-    }));
+    const data: Payment[] = raw.map(mapPayment);
 
     const baseUrl = this._resolveBaseUrl(options);
     const baseOrigin = new URL(baseUrl).origin;
@@ -100,7 +101,7 @@ export class BrantaClient implements IBrantaClient {
     }
 
     const responseBody = await response.text();
-    return JSON.parse(responseBody) as Payment;
+    return mapPayment(JSON.parse(responseBody) as RawPayment);
   }
 
   async isApiKeyValid(options: BrantaClientOptions | null = null): Promise<boolean> {

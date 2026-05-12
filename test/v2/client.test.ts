@@ -156,6 +156,21 @@ describe("BrantaClient", () => {
       );
     });
 
+    test("should map zk_id from JSON to zkId in destinations", async () => {
+      const address = "test-address";
+      const payments = [{ destinations: [{ value: "123", zk: true, zk_id: "zk-abc" }] }];
+      mockFetch.mockResolvedValue({
+        ok: true,
+        headers: { get: () => "100" },
+        json: async () => payments,
+      } as MockResponse as Response);
+
+      const result = await client.getPayments(address);
+
+      expect(result[0].destinations[0].zkId).toBe("zk-abc");
+      expect((result[0].destinations[0] as any).zk_id).toBeUndefined();
+    });
+
     test("should map platform_logo_url from JSON to platformLogoUrl when domain matches baseUrl", async () => {
       const address = "test-address";
       const payments = [{ destinations: [{ value: "123", zk: false }], platform_logo_url: "http://localhost:3000/logo.png" }];
@@ -268,6 +283,21 @@ describe("BrantaClient", () => {
       const result = await client.postPayment(payment);
 
       expect(result).toEqual({ ...payment });
+    });
+
+    test("should map zk_id from response JSON to zkId in destinations", async () => {
+      const payment = testPayments[0];
+      const rawResponse = { destinations: [{ value: "bc1qtest", type: "bitcoin_address", zk: true, zk_id: "zk-response-1" }] };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify(rawResponse),
+      } as MockResponse as Response);
+
+      const result = await client.postPayment(payment);
+
+      expect(result.destinations[0].zkId).toBe("zk-response-1");
+      expect((result.destinations[0] as any).zk_id).toBeUndefined();
     });
 
     test("should include destination type in POST payload", async () => {
