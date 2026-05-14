@@ -1,3 +1,14 @@
-export { BrantaClient } from "./client.js";
-export { BrantaService } from "./service.js";
-export type { IBrantaClient, IBrantaService, Payment, PaymentResult, ZKPaymentResult, Destination, DestinationType } from "./types.js";
+export { BrantaClient } from './services/brantaClient.js';
+export { BrantaService } from './services/brantaService.js';
+export type { BrantaServiceOptions } from './services/brantaService.js';
+export { PaymentBuilder } from './classes/paymentBuilder.js';
+export { QRParser } from './classes/qrParser.js';
+export type { QrDestination } from './classes/qrParser.js';
+export { GuidSecretGenerator } from './classes/guidSecretGenerator.js';
+export type { Payment } from './models/payment.js';
+export { getDefaultValue } from './models/payment.js';
+export type { Destination } from './models/destination.js';
+export type { IAesEncryption } from './interfaces/iAesEncryption.js';
+export type { IBrantaClient } from './interfaces/iBrantaClient.js';
+export type { IBrantaService } from './interfaces/iBrantaService.js';
+export type { ISecretGenerator } from './interfaces/iSecretGenerator.js';
