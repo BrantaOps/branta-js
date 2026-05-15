@@ -9,7 +9,6 @@ export interface Payment {
   platform?: string;
   platformLogoUrl?: string;
   platformLogoLightUrl?: string;
-  verifyUrl?: string;
   btcPayServerPluginVersion?: string;
 }
 

@@ -18,6 +18,7 @@ import { IBrantaService } from '../interfaces/iBrantaService.js';
 import { ISecretGenerator } from '../interfaces/iSecretGenerator.js';
 import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
+import { PaymentsResult } from '../models/paymentsResult.js';
 import { BrantaClient } from './brantaClient.js';
 
 export interface BrantaServiceOptions {
@@ -45,7 +46,7 @@ export class BrantaService implements IBrantaService {
     this.secretGenerator = merged.secretGenerator ?? new GuidSecretGenerator();
   }
 
-  async getPaymentsByQrCode(qrText: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<Payment[]> {
+  async getPaymentsByQrCode(qrText: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<PaymentsResult> {
     const parser = new QRParser(qrText);
 
     if (parser.isOnChainZk()) {
@@ -57,7 +58,7 @@ export class BrantaService implements IBrantaService {
 
     const destination = parser.destination!;
     if (getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict && getHashZkType(destination) === undefined) {
-      return [];
+      return { payments: [], verifyUrl: this.buildVerifyUrl(options, destination) };
     }
 
     return this.getPayments(destination, undefined, options, signal);
@@ -69,18 +70,18 @@ export class BrantaService implements IBrantaService {
     additionalHashValues: string[],
     options: BrantaClientOptions | undefined,
     signal: AbortSignal | undefined,
-  ): Promise<Payment[]> {
+  ): Promise<PaymentsResult> {
     const payments = await this.client.getPayments(lookupValue, options, signal);
 
+    const keys: Record<string, string> = {};
     for (const payment of payments) {
-      const keys = await this.decryptDestinations(payment.destinations, lookupValue, encryptionKey, undefined);
+      await this.decryptDestinations(payment.destinations, lookupValue, encryptionKey, undefined, keys);
       for (const value of additionalHashValues) {
         await this.decryptHashZkDestinations(payment.destinations, value, keys);
       }
-      payment.verifyUrl = this.buildVerifyUrl(options, lookupValue, keys);
     }
 
-    return payments;
+    return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
   }
 
   private async decryptHashZkDestinations(
@@ -111,7 +112,7 @@ export class BrantaService implements IBrantaService {
     destinationEncryptionKey?: string,
     options?: BrantaClientOptions,
     signal?: AbortSignal,
-  ): Promise<Payment[]> {
+  ): Promise<PaymentsResult> {
     const hashZkType = getHashZkType(destinationValue);
 
     if (hashZkType === undefined && getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict) {
@@ -135,12 +136,12 @@ export class BrantaService implements IBrantaService {
       payments = await this.client.getPayments(lookupValue, options, signal);
     }
 
+    const keys: Record<string, string> = {};
     for (const payment of payments) {
-      const destinationKeys = await this.decryptDestinations(payment.destinations, normalizedDestination, destinationEncryptionKey, hashZkType);
-      payment.verifyUrl = this.buildVerifyUrl(options, lookupValue, destinationKeys);
+      await this.decryptDestinations(payment.destinations, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
     }
 
-    return payments;
+    return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
   }
 
   private async decryptDestinations(
@@ -148,9 +149,8 @@ export class BrantaService implements IBrantaService {
     destinationValue: string,
     encryptionKey: string | undefined,
     hashZkType: DestinationType | undefined,
-  ): Promise<Record<string, string>> {
-    const keys: Record<string, string> = {};
-
+    keys: Record<string, string>,
+  ): Promise<void> {
     for (const destination of destinations) {
       destination.isEncrypted = !!destination.isZk;
       if (!destination.isZk) continue;
@@ -179,15 +179,13 @@ export class BrantaService implements IBrantaService {
         }
       }
     }
-
-    return keys;
   }
 
   async addPayment(
     payment: Payment,
     options?: BrantaClientOptions,
     signal?: AbortSignal,
-  ): Promise<{ payment: Payment; secret: string }> {
+  ): Promise<{ payment: Payment; secret: string; verifyUrl: string }> {
     if (
       getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict &&
       payment.destinations.some((d) => !d.isZk)
@@ -231,9 +229,9 @@ export class BrantaService implements IBrantaService {
     }
 
     const primaryValue = payment.destinations[0]?.value ?? '';
-    responsePayment.verifyUrl = this.buildVerifyUrl(options, primaryValue, keys);
+    const verifyUrl = this.buildVerifyUrl(options, primaryValue, keys);
 
-    return { payment: responsePayment, secret };
+    return { payment: responsePayment, secret, verifyUrl };
   }
 
   isApiKeyValid(options?: BrantaClientOptions, signal?: AbortSignal): Promise<boolean> {
