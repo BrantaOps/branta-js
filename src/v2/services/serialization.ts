@@ -38,7 +38,6 @@ export const paymentToApi = (payment: Payment): Record<string, unknown> => {
   if (payment.platform !== undefined) result['platform'] = payment.platform;
   if (payment.platformLogoUrl !== undefined) result['platform_logo_url'] = payment.platformLogoUrl;
   if (payment.platformLogoLightUrl !== undefined) result['platform_logo_light_url'] = payment.platformLogoLightUrl;
-  if (payment.verifyUrl !== undefined) result['verify_url'] = payment.verifyUrl;
   if (payment.btcPayServerPluginVersion !== undefined) {
     result['btc_pay_server_plugin_version'] = payment.btcPayServerPluginVersion;
   }
@@ -61,7 +60,6 @@ export const paymentFromApi = (raw: Record<string, unknown>): Payment => {
   if (raw['platform_logo_light_url'] !== undefined && raw['platform_logo_light_url'] !== null) {
     payment.platformLogoLightUrl = String(raw['platform_logo_light_url']);
   }
-  if (raw['verify_url'] !== undefined && raw['verify_url'] !== null) payment.verifyUrl = String(raw['verify_url']);
   if (raw['btc_pay_server_plugin_version'] !== undefined && raw['btc_pay_server_plugin_version'] !== null) {
     payment.btcPayServerPluginVersion = String(raw['btc_pay_server_plugin_version']);
   }

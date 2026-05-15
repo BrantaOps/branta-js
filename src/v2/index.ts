@@ -7,6 +7,7 @@ export type { QrDestination } from './classes/qrParser.js';
 export { GuidSecretGenerator } from './classes/guidSecretGenerator.js';
 export type { Payment } from './models/payment.js';
 export { getDefaultValue } from './models/payment.js';
+export type { PaymentsResult } from './models/paymentsResult.js';
 export type { Destination } from './models/destination.js';
 export type { IAesEncryption } from './interfaces/iAesEncryption.js';
 export type { IBrantaClient } from './interfaces/iBrantaClient.js';
