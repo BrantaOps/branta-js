@@ -179,6 +179,28 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
     });
 
+    test('getPaymentsByQrCode_lightningBolt11Uri_leavesUnrelatedZkBitcoinDestinationEncrypted', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(EncryptedBolt11, DestinationType.Bolt11)
+        .setZk()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .setZk()
+        .build();
+
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBolt11) return [payment];
+        return [];
+      });
+
+      const result = await service.getPaymentsByQrCode(`lightning:${Bolt11Invoice}`);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
+      expect(result[0]!.destinations[0]!.isEncrypted).toBe(false);
+      expect(result[0]!.destinations[1]!.value).toBe(EncryptedBitcoinAddress);
+      expect(result[0]!.destinations[1]!.isEncrypted).toBe(true);
+    });
+
     test('getPaymentsByQrCode_combinedZkQr_decryptsBothAddressAndInvoice', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
@@ -259,12 +281,28 @@ describe('BrantaService', () => {
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
     });
 
-    test('getPayments_zkBitcoinAddress_noKey_throwsException', async () => {
+    test('getPayments_zkBitcoinAddress_noKey_leavesEncrypted', async () => {
       clientMock.getPayments.mockResolvedValue([zkBitcoinPayment()]);
 
-      await expect(service.getPayments(EncryptedBitcoinAddress, undefined)).rejects.toThrow();
+      const result = await service.getPayments(EncryptedBitcoinAddress, undefined);
 
+      expect(result).toHaveLength(1);
+      expect(result[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(result[0]!.destinations[0]!.isEncrypted).toBe(true);
       expect(aesMock.decrypt).not.toHaveBeenCalled();
+    });
+
+    test('getPayments_zkBitcoinAddress_wrongKey_leavesEncrypted', async () => {
+      clientMock.getPayments.mockResolvedValue([zkBitcoinPayment()]);
+      aesMock.decrypt.mockImplementationOnce(async () => {
+        throw new Error('Decryption failed: auth tag mismatch');
+      });
+
+      const result = await service.getPayments(EncryptedBitcoinAddress, 'wrong-key');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(result[0]!.destinations[0]!.isEncrypted).toBe(true);
     });
 
     test('getPayments_nonZkDestination_doesNotDecrypt', async () => {

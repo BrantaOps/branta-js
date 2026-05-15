@@ -1,16 +1,10 @@
-# Branta JavaScript SDK
-
-Package contains functionality to assist JavaScript projects with making requests to Branta's server.
-
-## Installation
-
-Install via npm:
+# Install
 
 ```bash
 npm i @branta-ops/branta
 ```
 
-## Quick Start
+# Quick Start
 
 ### For Wallets
 ```ts

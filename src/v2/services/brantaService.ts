@@ -95,9 +95,14 @@ export class BrantaService implements IBrantaService {
     const key = await toNormalizedHash(plainValue);
     for (const destination of destinations) {
       if (!destination.isZk || destination.type !== hashZkType) continue;
-      destination.value = await this.aesEncryption.decrypt(destination.value, key);
-      if (destination.zkId !== undefined && !(destination.zkId in keys)) {
-        keys[destination.zkId] = key;
+      try {
+        destination.value = await this.aesEncryption.decrypt(destination.value, key);
+        destination.isEncrypted = false;
+        if (destination.zkId !== undefined && !(destination.zkId in keys)) {
+          keys[destination.zkId] = key;
+        }
+      } catch {
+        // Key didn't match this destination — leave it encrypted.
       }
     }
   }
@@ -147,21 +152,30 @@ export class BrantaService implements IBrantaService {
     keys: Record<string, string>,
   ): Promise<void> {
     for (const destination of destinations) {
+      destination.isEncrypted = !!destination.isZk;
       if (!destination.isZk) continue;
 
       if (destination.type === DestinationType.BitcoinAddress) {
-        if (encryptionKey === undefined) {
-          throw new Error('Payment is ZK but no destination encryption key was provided.');
-        }
-        destination.value = await this.aesEncryption.decrypt(destination.value, encryptionKey);
-        if (destination.zkId !== undefined && !(destination.zkId in keys)) {
-          keys[destination.zkId] = encryptionKey;
+        if (encryptionKey === undefined) continue;
+        try {
+          destination.value = await this.aesEncryption.decrypt(destination.value, encryptionKey);
+          destination.isEncrypted = false;
+          if (destination.zkId !== undefined && !(destination.zkId in keys)) {
+            keys[destination.zkId] = encryptionKey;
+          }
+        } catch {
+          // Key didn't match this destination — leave it encrypted.
         }
       } else if (hashZkType !== undefined && destination.type === hashZkType) {
         const key = await toNormalizedHash(destinationValue);
-        destination.value = await this.aesEncryption.decrypt(destination.value, key);
-        if (destination.zkId !== undefined && !(destination.zkId in keys)) {
-          keys[destination.zkId] = key;
+        try {
+          destination.value = await this.aesEncryption.decrypt(destination.value, key);
+          destination.isEncrypted = false;
+          if (destination.zkId !== undefined && !(destination.zkId in keys)) {
+            keys[destination.zkId] = key;
+          }
+        } catch {
+          // Key didn't match this destination — leave it encrypted.
         }
       }
     }
