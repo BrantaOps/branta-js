@@ -4,6 +4,7 @@ export interface Destination {
   value: string;
   isPrimary?: boolean;
   isZk?: boolean;
+  isEncrypted?: boolean;
   type?: DestinationType;
   zkId?: string;
 }
