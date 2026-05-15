@@ -192,13 +192,13 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const result = await service.getPaymentsByQrCode(`lightning:${Bolt11Invoice}`);
+      const { payments } = await service.getPaymentsByQrCode(`lightning:${Bolt11Invoice}`);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
-      expect(result[0]!.destinations[0]!.isEncrypted).toBe(false);
-      expect(result[0]!.destinations[1]!.value).toBe(EncryptedBitcoinAddress);
-      expect(result[0]!.destinations[1]!.isEncrypted).toBe(true);
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
+      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(false);
+      expect(payments[0]!.destinations[1]!.value).toBe(EncryptedBitcoinAddress);
+      expect(payments[0]!.destinations[1]!.isEncrypted).toBe(true);
     });
 
     test('getPaymentsByQrCode_combinedZkQr_decryptsBothAddressAndInvoice', async () => {
@@ -284,11 +284,11 @@ describe('BrantaService', () => {
     test('getPayments_zkBitcoinAddress_noKey_leavesEncrypted', async () => {
       clientMock.getPayments.mockResolvedValue([zkBitcoinPayment()]);
 
-      const result = await service.getPayments(EncryptedBitcoinAddress, undefined);
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, undefined);
 
-      expect(result).toHaveLength(1);
-      expect(result[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
-      expect(result[0]!.destinations[0]!.isEncrypted).toBe(true);
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(true);
       expect(aesMock.decrypt).not.toHaveBeenCalled();
     });
 
@@ -298,11 +298,11 @@ describe('BrantaService', () => {
         throw new Error('Decryption failed: auth tag mismatch');
       });
 
-      const result = await service.getPayments(EncryptedBitcoinAddress, 'wrong-key');
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, 'wrong-key');
 
-      expect(result).toHaveLength(1);
-      expect(result[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
-      expect(result[0]!.destinations[0]!.isEncrypted).toBe(true);
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(true);
     });
 
     test('getPayments_nonZkDestination_doesNotDecrypt', async () => {
