@@ -625,6 +625,55 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
+    test('getPayments_strictMode_encryptedBitcoinAddress_withSecret_decryptsDestination', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const { payments } = await strictService.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
+      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(false);
+      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBitcoinAddress, undefined, undefined);
+      expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
+      expect(aesMock.encrypt).not.toHaveBeenCalled();
+    });
+
+    test('getPayments_strictMode_encryptedBitcoinAddress_withSecret_setsVerifyUrlWithKeyFragment', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .setZk()
+        .build();
+      const zkId = payment.destinations[0]!.zkId!;
+
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [payment];
+        return [];
+      });
+
+      const { verifyUrl } = await strictService.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkId}=${Secret}`);
+    });
+
+    test('getPayments_strictMode_encryptedBitcoinAddress_wrongKey_leavesEncrypted', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+      aesMock.decrypt.mockImplementationOnce(async () => {
+        throw new Error('Decryption failed: auth tag mismatch');
+      });
+
+      const { payments } = await strictService.getPayments(EncryptedBitcoinAddress, 'wrong-key');
+
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(true);
+    });
+
     test('getPayments_strictMode_bolt11Invoice_doesNotThrow_usesEncryptedLookup', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedBolt11) return [zkBolt11Payment()];
