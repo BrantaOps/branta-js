@@ -115,7 +115,11 @@ export class BrantaService implements IBrantaService {
   ): Promise<PaymentsResult> {
     const hashZkType = getHashZkType(destinationValue);
 
-    if (hashZkType === undefined && getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict) {
+    if (
+      hashZkType === undefined &&
+      destinationEncryptionKey === undefined &&
+      getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict
+    ) {
       throw new BrantaPaymentException('PrivacyMode.Strict does not permit plain-text lookups for this destination type.');
     }
 
