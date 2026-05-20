@@ -6,20 +6,45 @@ npm i @branta-ops/branta
 
 # Quick Start
 
-### For Wallets
+## For Wallets
+
+Wallets should use `strict` privacy mode. Two flows are supported:
+
+- **Copy/paste**: call `getPayments` with the pasted text. Plain-text on-chain addresses will not return results in strict mode — they must be ZK-encoded. Lightning destinations (bolt11, bolt12, ln_url, ln_address) work as plain text.
+- **QR scan**: call `getPaymentsByQrCode` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
+
+Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
+
 ```ts
 import { BrantaServerBaseUrl } from "@branta-ops/branta";
 import { BrantaService } from "@branta-ops/branta/v2";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
-  privacy: 'loose',
+  privacy: 'strict',
 });
 
-await service.getPayments("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+async function lookup(input: string, isQrCode: boolean) {
+  try {
+    const result = isQrCode
+      ? await service.getPaymentsByQrCode(input)
+      : await service.getPayments(input);
+
+    if (result.payments.length === 0) {
+      // Not found — show nothing. The address may simply not exist in Branta.
+      return;
+    }
+
+    // Render result.payments and result.verifyUrl
+  } catch {
+    // Swallow errors — never surface a "not found" or lookup failure to the user.
+  }
+}
 ```
 
-### For Platforms
+## For Platforms
+
+Platforms post payments to Branta so wallets can verify them. Use `strict` privacy mode and mark each destination ZK via `setZk()` on the `PaymentBuilder`.
 
 ```ts
 import { BrantaServerBaseUrl } from "@branta-ops/branta";
@@ -28,19 +53,23 @@ import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
-  privacy: 'loose',
+  privacy: 'strict',
 });
 
 const payment = new PaymentBuilder()
   .setDescription("Testing description")
   .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
+  .setZk()
   .setTtl(600)
   .build();
 
-await service.addPayment(payment);
+const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
+// `secret` is the encryption key needed to look the payment up later.
 ```
 
-### For Parent Platforms
+## For Parent Platforms
+
+Parent Platforms sign requests with HMAC in addition to the API key. Use `strict` privacy mode and ZK destinations.
 
 ```ts
 import { BrantaServerBaseUrl } from "@branta-ops/branta";
@@ -50,86 +79,25 @@ const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
   hmacSecret: "<hmac-secret>",
-  privacy: 'loose',
+  privacy: 'strict',
 });
 
 const payment = new PaymentBuilder()
   .setDescription("Testing description")
   .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
+  .setZk()
   .setTtl(600)
   .build();
 
-await service.addPayment(payment);
+const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
 ```
 
-### Zero-Knowledge Payment
+# Release
 
-```ts
-const payment = new PaymentBuilder()
-  .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
-  .setZk()
-  .build();
-
-const { payment: response, secret } = await service.addPayment(payment);
-// `secret` is the encryption key needed to look the payment up later.
-```
-
-## React Native
-
-This SDK uses the Web Crypto API (`crypto.subtle`) and the `URL` constructor, which are not available in React Native's JavaScript engine (Hermes/JavaScriptCore) by default. You need two polyfills.
-
-**1. Install the polyfills**
-
-```bash
-npm install react-native-quick-crypto react-native-url-polyfill
-```
-
-For bare React Native, link the native module:
-
-```bash
-npx pod-install   # iOS
-```
-
-**2. Create a shims file**
-
-Create `shims.js` (or `shims.ts`) anywhere in your project:
-
-```js
-import 'react-native-url-polyfill/auto';
-import QuickCrypto from 'react-native-quick-crypto';
-
-// Polyfill the global crypto object with Web Crypto API support
-global.crypto = QuickCrypto;
-```
-
-**3. Import the shims before everything else**
-
-At the very top of your app entry point (`index.js` or `App.tsx`), before any other imports:
-
-```js
-import './shims'; // must be first
-
-import { AppRegistry } from 'react-native';
-import App from './App';
-// ...
-```
-
-> **Why first?** The SDK resolves `crypto` at import time. If the shim loads after the SDK, the polyfill won't be in place when it's needed.
-
-This is the same pattern used by [viem](https://viem.sh/docs/getting-started#react-native) (Ethereum SDK) for identical reasons.
-
-## Release
  - npm login
  - npm version major|minor|patch
  - npm publish
 
-## Feature Support
+# Responsible Disclosure
 
- - [X] Per Environment configuration
- - [X] V2 Get Payment by address
- - [X] V2 Get Payment by QR Code
- - [X] V2 Get decrypted Zero Knowledge by address and secret
- - [X] V2 Add Payment
- - [X] V2 Payment by Parent Platform with HMAC
- - [X] V2 Add Zero Knowledge Payment with secret
- - [X] V2 Check API key valid
+Found critical bugs/vulnerabilities? Please email them to support@branta.pro. Thanks!
