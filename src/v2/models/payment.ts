@@ -1,4 +1,5 @@
 import { Destination } from './destination.js';
+import { Platform } from './platform.js';
 
 export interface Payment {
   description?: string;
@@ -9,6 +10,7 @@ export interface Payment {
   platform?: string;
   platformLogoUrl?: string;
   platformLogoLightUrl?: string;
+  parentPlatform?: Platform;
   btcPayServerPluginVersion?: string;
 }
 
