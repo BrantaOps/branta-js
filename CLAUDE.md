@@ -1,5 +1,9 @@
 # Branta JS SDK
 
+If you are implementing this SDK in a consumer project, see the **Integration Guide** section at the top of `README.md` — it covers integration types, recommended flows, and rules.
+
+---
+
 TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consumers (wallets, platforms, parent platforms) call `BrantaService` to look up or post payments to Branta's V2 API. Mirrors the .NET SDK at [github.com/BrantaOps/branta-dotnet](https://github.com/BrantaOps/branta-dotnet) and should be kept feature-parity with it.
 
 ## Package layout
