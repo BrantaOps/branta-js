@@ -1,5 +1,5 @@
 import { DestinationType } from '../../enums/destinationType.js';
-import { isBolt11 } from '../../extensions/brantaExtensions.js';
+import { isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
@@ -35,6 +35,7 @@ const detectPlainTextType = (value: string): DestinationType | undefined => {
   if (startsWithI(value, 'lno')) return DestinationType.Bolt12;
   if (startsWithI(value, 'LNURL')) return DestinationType.LnUrl;
   if (startsWithI(value, 'ark1')) return DestinationType.ArkAddress;
+  if (isSilentPayment(value)) return DestinationType.SilentPayment;
   if (isEthereumAddress(value)) return DestinationType.TetherAddress;
   if (isTronAddress(value)) return DestinationType.TetherAddress;
   if (LN_ADDRESS_RE.test(value)) return DestinationType.LnAddress;
@@ -112,6 +113,11 @@ export class QRParser {
       const arkValue = queryParams.get('ark');
       if (arkValue !== undefined) {
         this.destinations.push({ value: arkValue, type: detectPlainTextType(arkValue) });
+      }
+
+      const silentPaymentValue = queryParams.get('silent_payment');
+      if (silentPaymentValue !== undefined) {
+        this.destinations.push({ value: silentPaymentValue, type: detectPlainTextType(silentPaymentValue) });
       }
 
       return;

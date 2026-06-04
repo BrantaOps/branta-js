@@ -6,6 +6,7 @@ import {
   getUrl,
   isArk,
   isBolt11,
+  isSilentPayment,
   toNormalizedHash,
   toUrlFragment,
 } from '../../src/extensions/brantaExtensions.js';
@@ -61,6 +62,25 @@ describe('BrantaExtensions', () => {
     expect(isArk('bc1qabc')).toBe(false);
   });
 
+  // isSilentPayment
+
+  test('isSilentPayment_returnsTrue_forSp1Prefix', () => {
+    expect(isSilentPayment('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(true);
+  });
+
+  test('isSilentPayment_returnsTrue_forTsp1Prefix', () => {
+    expect(isSilentPayment('tsp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(true);
+  });
+
+  test('isSilentPayment_isCaseInsensitive', () => {
+    expect(isSilentPayment('SP1QQWL5P9JHZ')).toBe(true);
+  });
+
+  test('isSilentPayment_returnsFalse_forNonSpValues', () => {
+    expect(isSilentPayment('bc1qabc')).toBe(false);
+    expect(isSilentPayment('ark1qqjqtest')).toBe(false);
+  });
+
   // getHashZkType
 
   test('getHashZkType_returnsBolt11_forBolt11Invoice', () => {
@@ -69,6 +89,10 @@ describe('BrantaExtensions', () => {
 
   test('getHashZkType_returnsArkAddress_forArkAddress', () => {
     expect(getHashZkType('ark1qqjqtest')).toBe(DestinationType.ArkAddress);
+  });
+
+  test('getHashZkType_returnsSilentPayment_forSilentPaymentAddress', () => {
+    expect(getHashZkType('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(DestinationType.SilentPayment);
   });
 
   test('getHashZkType_returnsUndefined_forBitcoinAddress', () => {

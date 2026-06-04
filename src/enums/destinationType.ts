@@ -6,6 +6,7 @@ export const DestinationType = {
   TetherAddress: 'tether_address',
   LnAddress: 'ln_address',
   ArkAddress: 'ark_address',
+  SilentPayment: 'silent_payment',
 } as const;
 
 export type DestinationType = (typeof DestinationType)[keyof typeof DestinationType];

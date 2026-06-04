@@ -100,6 +100,20 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.ArkAddress);
   });
 
+  test('qrParser_silentPaymentAddress_setsSilentPaymentType', () => {
+    const result = new QRParser('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
+
+    expect(result.destination).toBe('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
+    expect(result.destinationType).toBe(DestinationType.SilentPayment);
+  });
+
+  test('qrParser_testnetSilentPaymentAddress_setsSilentPaymentType', () => {
+    const result = new QRParser('tsp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
+
+    expect(result.destination).toBe('tsp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
+    expect(result.destinationType).toBe(DestinationType.SilentPayment);
+  });
+
   test('qrParser_unrecognizedText_setsUndefinedType', () => {
     const result = new QRParser('not-any-known-format');
 
@@ -136,5 +150,15 @@ describe('QRParser', () => {
     expect(result.destinations[2]!.value).toBe('ark100testaddress');
     expect(result.destinations[2]!.type).toBe(DestinationType.ArkAddress);
     expect(result.isOnChainZk()).toBe(false);
+  });
+
+  test('qrParser_bitcoinUriWithSilentPaymentParam_addsSilentPaymentDestination', () => {
+    const result = new QRParser('bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?silent_payment=sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
+
+    expect(result.destinations).toHaveLength(2);
+    expect(result.destination).toBe('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
+    expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
+    expect(result.destinations[1]!.value).toBe('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
+    expect(result.destinations[1]!.type).toBe(DestinationType.SilentPayment);
   });
 });
