@@ -54,9 +54,15 @@ export function isArk(value: string): boolean {
   return value.toLowerCase().startsWith('ark1');
 }
 
+export function isSilentPayment(value: string): boolean {
+  const lower = value.toLowerCase();
+  return lower.startsWith('sp1') || lower.startsWith('tsp1');
+}
+
 export function getHashZkType(value: string): DestinationType | undefined {
   if (isBolt11(value)) return DestinationType.Bolt11;
   if (isArk(value)) return DestinationType.ArkAddress;
+  if (isSilentPayment(value)) return DestinationType.SilentPayment;
   return undefined;
 }
 
