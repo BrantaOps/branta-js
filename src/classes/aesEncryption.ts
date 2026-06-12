@@ -1,20 +1,6 @@
+import { aesGcmDecrypt, aesGcmEncrypt, getRandomBytes, hmacSha256, sha256 } from './cryptoProvider.js';
+
 type Bytes = Uint8Array<ArrayBuffer>;
-
-const subtle = (): SubtleCrypto => {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (!c?.subtle) {
-    throw new Error('Web Crypto API is not available. See README for React Native polyfill instructions.');
-  }
-  return c.subtle;
-};
-
-const getRandomBytes = (length: number): Bytes => {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (!c?.getRandomValues) {
-    throw new Error('Web Crypto API is not available. See README for React Native polyfill instructions.');
-  }
-  return c.getRandomValues(new Uint8Array(length));
-};
 
 const utf8Bytes = (text: string): Bytes => new TextEncoder().encode(text);
 
@@ -37,17 +23,6 @@ const fromBase64 = (value: string): Bytes => {
   return bytes;
 };
 
-const sha256 = async (bytes: Bytes): Promise<Bytes> => {
-  const hash = await subtle().digest('SHA-256', bytes);
-  return new Uint8Array(hash);
-};
-
-const hmacSha256 = async (keyBytes: Bytes, messageBytes: Bytes): Promise<Bytes> => {
-  const key = await subtle().importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await subtle().sign('HMAC', key, messageBytes);
-  return new Uint8Array(signature);
-};
-
 export class AesEncryption {
   static async encrypt(value: string, secret: string, deterministicNonce = false): Promise<string> {
     try {
@@ -61,10 +36,7 @@ export class AesEncryption {
         iv = derived.slice(0, 12) as Bytes;
       }
 
-      const key = await subtle().importKey('raw', keyData, 'AES-GCM', false, ['encrypt']);
-      const encrypted = new Uint8Array(
-        await subtle().encrypt({ name: 'AES-GCM', iv, tagLength: 128 }, key, utf8Bytes(value)),
-      );
+      const encrypted = await aesGcmEncrypt(keyData, iv, utf8Bytes(value));
 
       const result = new Uint8Array(iv.length + encrypted.length);
       result.set(iv, 0);
@@ -95,10 +67,7 @@ export class AesEncryption {
       const iv = encryptedData.slice(0, 12) as Bytes;
       const ciphertextAndTag = encryptedData.slice(12) as Bytes;
 
-      const key = await subtle().importKey('raw', keyData, 'AES-GCM', false, ['decrypt']);
-      const plaintext = new Uint8Array(
-        await subtle().decrypt({ name: 'AES-GCM', iv, tagLength: 128 }, key, ciphertextAndTag),
-      );
+      const plaintext = await aesGcmDecrypt(keyData, iv, ciphertextAndTag);
 
       return utf8String(plaintext);
     } catch (e) {

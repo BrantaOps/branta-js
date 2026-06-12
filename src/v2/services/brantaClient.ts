@@ -1,4 +1,5 @@
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
+import { hmacSha256 } from '../../classes/cryptoProvider.js';
 import { BrantaPaymentException } from '../../exceptions/brantaPaymentException.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
@@ -7,19 +8,10 @@ import { paymentFromApi, paymentToApi } from './serialization.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
-const subtle = (): SubtleCrypto => {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
-  if (!c?.subtle) {
-    throw new Error('Web Crypto API is not available. See README for React Native polyfill instructions.');
-  }
-  return c.subtle;
-};
-
 const utf8Bytes = (text: string): Bytes => new TextEncoder().encode(text);
 
 const hmacSha256Hex = async (keyBytes: Bytes, messageBytes: Bytes): Promise<string> => {
-  const key = await subtle().importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = new Uint8Array(await subtle().sign('HMAC', key, messageBytes));
+  const signature = await hmacSha256(keyBytes, messageBytes);
   let hex = '';
   for (let i = 0; i < signature.length; i++) hex += signature[i]!.toString(16).padStart(2, '0');
   return hex;

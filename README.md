@@ -131,6 +131,16 @@ const payment = new PaymentBuilder()
 const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
 ```
 
+# Environment Support
+
+The SDK uses the Web Crypto API (`crypto.subtle`) when available and transparently falls back to pure-JS implementations ([`@noble/hashes`](https://github.com/paulmillr/noble-hashes), [`@noble/ciphers`](https://github.com/paulmillr/noble-ciphers)) when it is not. This matters for browsers in non-secure contexts — pages served over plain HTTP (e.g. self-hosted node platforms like Umbrel or Start9 on a LAN) — where `crypto.subtle` is undefined. Payment verification works the same in both cases.
+
+The only hard requirement is `crypto.getRandomValues`. It is available in all modern browsers (regardless of secure context) and Node.js 18+. In React Native it is missing by default — install [`react-native-get-random-values`](https://github.com/LinusU/react-native-get-random-values) and import it before the SDK:
+
+```js
+import 'react-native-get-random-values';
+```
+
 # Release
 
  - npm login
