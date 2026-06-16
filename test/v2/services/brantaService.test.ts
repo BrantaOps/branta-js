@@ -617,6 +617,210 @@ describe('BrantaService', () => {
     });
   });
 
+  // ===== Metadata Encryption (DEK Envelope) =====
+
+  describe('metadata encryption (DEK envelope)', () => {
+    const Dek = 'test-dek';
+    const EncryptedDek = 'encrypted-dek-value';
+    const Metadata = '{"email":"alice@example.com"}';
+    const EncryptedMetadata = 'encrypted-metadata-value';
+
+    // addPayment
+
+    test('addPayment_withMetadataAndZkBitcoinDestination_encryptsMetadataWithDekAndSetsDek', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+        .setZk()
+        .build();
+      payment.metadata = Metadata;
+      const zkId = payment.destinations[0]!.zkId!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      responsePayment.destinations[0]!.isZk = true;
+      responsePayment.destinations[0]!.zkId = zkId;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+      secretMock.generate.mockReturnValueOnce(Dek).mockReturnValueOnce(Secret);
+      aesMock.encrypt.mockImplementation(async (value, key) => {
+        if (value === Metadata && key === Dek) return EncryptedMetadata;
+        if (value === BitcoinAddress && key === Secret) return EncryptedBitcoinAddress;
+        if (value === Dek && key === Secret) return EncryptedDek;
+        return '';
+      });
+
+      await service.addPayment(payment);
+
+      expect(payment.metadata).toBe(EncryptedMetadata);
+      expect(payment.destinations[0]!.encryptedDek).toBe(EncryptedDek);
+      expect(aesMock.encrypt).toHaveBeenCalledWith(Metadata, Dek, false);
+      expect(aesMock.encrypt).toHaveBeenCalledWith(Dek, Secret, false);
+    });
+
+    test('addPayment_withMetadataAndNoZkDestination_leavesMetadataPlain', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      payment.metadata = Metadata;
+
+      clientMock.postPayment.mockResolvedValue(plainBitcoinPayment());
+
+      await service.addPayment(payment);
+
+      expect(payment.metadata).toBe(Metadata);
+      expect(aesMock.encrypt).not.toHaveBeenCalled();
+      // generate() called once for the secret, never for a DEK
+      expect(secretMock.generate).toHaveBeenCalledTimes(1);
+    });
+
+    test('addPayment_withZkDestinationAndNoMetadata_doesNotGenerateDek', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+        .setZk()
+        .build();
+      const zkId = payment.destinations[0]!.zkId!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      responsePayment.destinations[0]!.isZk = true;
+      responsePayment.destinations[0]!.zkId = zkId;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+      aesMock.encrypt.mockImplementation(async (value, key) => {
+        if (value === BitcoinAddress && key === Secret) return EncryptedBitcoinAddress;
+        return '';
+      });
+
+      await service.addPayment(payment);
+
+      expect(secretMock.generate).toHaveBeenCalledTimes(1);
+      expect(payment.destinations[0]!.encryptedDek).toBeUndefined();
+    });
+
+    // decryptDestinations
+
+    test('getPayments_zkBitcoinWithEncryptedDek_decryptsMetadataViaDek', async () => {
+      const payment: Payment = {
+        destinations: [{ value: EncryptedBitcoinAddress, isZk: true, type: DestinationType.BitcoinAddress, encryptedDek: EncryptedDek }],
+        metadata: EncryptedMetadata,
+      };
+
+      clientMock.getPayments.mockResolvedValue([payment]);
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if (encryptedValue === EncryptedBitcoinAddress && key === Secret) return BitcoinAddress;
+        if (encryptedValue === EncryptedDek && key === Secret) return Dek;
+        if (encryptedValue === EncryptedMetadata && key === Dek) return Metadata;
+        throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
+      });
+
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(payments[0]!.metadata).toBe(Metadata);
+      expect(payments[0]!.isMetadataDecrypted).toBe(true);
+    });
+
+    test('getPayments_zkBolt11WithEncryptedDek_decryptsMetadataViaHashKey', async () => {
+      const payment: Payment = {
+        destinations: [{ value: EncryptedBolt11, isZk: true, type: DestinationType.Bolt11, encryptedDek: EncryptedDek }],
+        metadata: EncryptedMetadata,
+      };
+
+      clientMock.getPayments.mockImplementation(async (lookup) => {
+        if (lookup === EncryptedBolt11) return [payment];
+        return [];
+      });
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if (encryptedValue === EncryptedBolt11 && key === Bolt11Hash) return DecryptedBolt11;
+        if (encryptedValue === EncryptedDek && key === Bolt11Hash) return Dek;
+        if (encryptedValue === EncryptedMetadata && key === Dek) return Metadata;
+        throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
+      });
+
+      const { payments } = await service.getPayments(Bolt11Invoice);
+
+      expect(payments[0]!.metadata).toBe(Metadata);
+      expect(payments[0]!.isMetadataDecrypted).toBe(true);
+    });
+
+    test('getPayments_wrongKey_encryptedDekDecryptFails_leavesMetadataEncrypted', async () => {
+      const payment: Payment = {
+        destinations: [{ value: EncryptedBitcoinAddress, isZk: true, type: DestinationType.BitcoinAddress, encryptedDek: EncryptedDek }],
+        metadata: EncryptedMetadata,
+      };
+
+      clientMock.getPayments.mockResolvedValue([payment]);
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if (encryptedValue === EncryptedBitcoinAddress && key === Secret) return BitcoinAddress;
+        throw new Error('Decryption failed: auth tag mismatch');
+      });
+
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(payments[0]!.metadata).toBe(EncryptedMetadata);
+      expect(payments[0]!.isMetadataDecrypted).toBeFalsy();
+    });
+
+    test('getPayments_twoZkDestinationsWithEncryptedDek_decryptsMetadataOnce', async () => {
+      const EncryptedBitcoinAddress2 = 'encrypted-bitcoin-address-2';
+      const payment: Payment = {
+        destinations: [
+          { value: EncryptedBitcoinAddress, isZk: true, type: DestinationType.BitcoinAddress, encryptedDek: EncryptedDek },
+          { value: EncryptedBitcoinAddress2, isZk: true, type: DestinationType.BitcoinAddress, encryptedDek: EncryptedDek },
+        ],
+        metadata: EncryptedMetadata,
+      };
+
+      clientMock.getPayments.mockResolvedValue([payment]);
+      let metadataDecryptCount = 0;
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if ((encryptedValue === EncryptedBitcoinAddress || encryptedValue === EncryptedBitcoinAddress2) && key === Secret) return BitcoinAddress;
+        if (encryptedValue === EncryptedDek && key === Secret) return Dek;
+        if (encryptedValue === EncryptedMetadata && key === Dek) { metadataDecryptCount++; return Metadata; }
+        throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
+      });
+
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(payments[0]!.metadata).toBe(Metadata);
+      expect(metadataDecryptCount).toBe(1);
+    });
+
+    test('getPayments_noEncryptedDek_doesNotAttemptMetadataDecrypt', async () => {
+      const payment: Payment = {
+        destinations: [{ value: EncryptedBitcoinAddress, isZk: true, type: DestinationType.BitcoinAddress }],
+        metadata: EncryptedMetadata,
+      };
+
+      clientMock.getPayments.mockResolvedValue([payment]);
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if (encryptedValue === EncryptedBitcoinAddress && key === Secret) return BitcoinAddress;
+        throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
+      });
+
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(payments[0]!.metadata).toBe(EncryptedMetadata);
+    });
+
+    test('getPayments_noMetadata_doesNotAttemptDekDecrypt', async () => {
+      const payment: Payment = {
+        destinations: [{ value: EncryptedBitcoinAddress, isZk: true, type: DestinationType.BitcoinAddress, encryptedDek: EncryptedDek }],
+      };
+
+      clientMock.getPayments.mockResolvedValue([payment]);
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if (encryptedValue === EncryptedBitcoinAddress && key === Secret) return BitcoinAddress;
+        throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
+      });
+
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, Secret);
+
+      expect(payments[0]!.metadata).toBeUndefined();
+    });
+  });
+
   // ===== StrictMode =====
 
   describe('StrictMode', () => {
