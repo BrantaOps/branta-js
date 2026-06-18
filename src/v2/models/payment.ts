@@ -12,6 +12,7 @@ export interface Payment {
   platformLogoLightUrl?: string;
   parentPlatform?: Platform;
   btcPayServerPluginVersion?: string;
+  isMetadataDecrypted?: boolean;
 }
 
 export function getDefaultValue(payment: Payment): string {
