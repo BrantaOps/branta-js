@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[3.1.4](https://github.com/BrantaOps/branta-js/compare/v3.1.3...v3.1.4)] - 2026-06-18
+
+### Added
+- Silent payment destination support ([#51](https://github.com/BrantaOps/branta-js/pull/51))
+- Encrypted metadata support on payment destinations ([#55](https://github.com/BrantaOps/branta-js/pull/55))
+- Injectable crypto provider for non-secure-context environments ([#56](https://github.com/BrantaOps/branta-js/pull/56))
+
 ## [[3.1.3](https://github.com/BrantaOps/branta-js/compare/v3.1.2...v3.1.3)] - 2026-05-29
 
 ### Added
