@@ -1,3 +1,4 @@
+import type { BrantaCryptoProvider } from '../../index.js';
 import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
 import { DestinationType } from '../../enums/destinationType.js';
@@ -11,6 +12,7 @@ import {
   toUrlFragment,
 } from '../../extensions/brantaExtensions.js';
 import { GuidSecretGenerator } from '../classes/guidSecretGenerator.js';
+import { PaymentBuilder } from '../classes/paymentBuilder.js';
 import { QRParser } from '../classes/qrParser.js';
 import { IAesEncryption } from '../interfaces/iAesEncryption.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
@@ -27,6 +29,7 @@ export interface BrantaServiceOptions {
   aesEncryption?: IAesEncryption;
   secretGenerator?: ISecretGenerator;
   fetchImpl?: typeof fetch;
+  crypto?: BrantaCryptoProvider;
 }
 
 export class BrantaService implements IBrantaService {
@@ -34,6 +37,7 @@ export class BrantaService implements IBrantaService {
   private readonly client: IBrantaClient;
   private readonly aesEncryption: IAesEncryption;
   private readonly secretGenerator: ISecretGenerator;
+  private readonly crypto?: BrantaCryptoProvider;
 
   constructor(defaultOptions?: BrantaClientOptions, opts: BrantaServiceOptions = {}) {
     const merged: BrantaServiceOptions = { ...opts };
@@ -41,9 +45,14 @@ export class BrantaService implements IBrantaService {
       merged.defaultOptions = defaultOptions;
     }
     if (merged.defaultOptions !== undefined) this.defaultOptions = merged.defaultOptions;
-    this.client = merged.client ?? new BrantaClient(this.defaultOptions, merged.fetchImpl);
-    this.aesEncryption = merged.aesEncryption ?? new AesEncryptionService();
-    this.secretGenerator = merged.secretGenerator ?? new GuidSecretGenerator();
+    this.crypto = merged.crypto;
+    this.client = merged.client ?? new BrantaClient(this.defaultOptions, merged.fetchImpl, this.crypto);
+    this.aesEncryption = merged.aesEncryption ?? new AesEncryptionService(this.crypto);
+    this.secretGenerator = merged.secretGenerator ?? new GuidSecretGenerator(this.crypto);
+  }
+
+  createPaymentBuilder(): PaymentBuilder {
+    return new PaymentBuilder(this.crypto);
   }
 
   async getPaymentsByQrCode(qrText: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<PaymentsResult> {
@@ -92,7 +101,7 @@ export class BrantaService implements IBrantaService {
     const hashZkType = getHashZkType(plainValue);
     if (hashZkType === undefined) return;
 
-    const key = await toNormalizedHash(plainValue);
+    const key = await toNormalizedHash(plainValue, this.crypto);
     for (const destination of destinations) {
       if (!destination.isZk || destination.type !== hashZkType) continue;
       try {
@@ -126,7 +135,7 @@ export class BrantaService implements IBrantaService {
     const normalizedDestination = hashZkType !== undefined ? destinationValue.toLowerCase() : destinationValue;
     let lookupValue = normalizedDestination;
     if (hashZkType !== undefined) {
-      lookupValue = await this.aesEncryption.encrypt(normalizedDestination, await toNormalizedHash(normalizedDestination), true);
+      lookupValue = await this.aesEncryption.encrypt(normalizedDestination, await toNormalizedHash(normalizedDestination, this.crypto), true);
     }
 
     let payments = await this.client.getPayments(lookupValue, options, signal);
@@ -171,7 +180,7 @@ export class BrantaService implements IBrantaService {
           // Key didn't match this destination — leave it encrypted.
         }
       } else if (hashZkType !== undefined && destination.type === hashZkType) {
-        const key = await toNormalizedHash(destinationValue);
+        const key = await toNormalizedHash(destinationValue, this.crypto);
         try {
           destination.value = await this.aesEncryption.decrypt(destination.value, key);
           destination.isEncrypted = false;
@@ -214,7 +223,7 @@ export class BrantaService implements IBrantaService {
           throw new BrantaPaymentException(`destination type '${destination.type}' does not support ZK`);
         }
         const normalizedValue = destination.value.toLowerCase();
-        const key = await toNormalizedHash(normalizedValue);
+        const key = await toNormalizedHash(normalizedValue, this.crypto);
         destination.value = await this.aesEncryption.encrypt(normalizedValue, key, true);
         encryptedToKey[destination.value] = key;
       }

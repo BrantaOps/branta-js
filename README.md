@@ -17,15 +17,20 @@ If they are on the receive side, ask one follow-up:
 - **Platform** — single-tenant, one API key.
 - **Parent Platform** — multi-tenant, manages multiple child platforms each with their own API key and HMAC secret.
 
-**2. Follow the matching Quick Start section below.**
+**2. Ask whether their app is served over HTTPS or HTTP:**
+- **HTTPS** — no extra setup needed; `crypto.subtle` is available by default.
+- **HTTP** — browsers block `crypto.subtle` on insecure origins. The SDK accepts a `crypto` option so you can supply a polyfill. See [HTTP (insecure origin) setup](#http-insecure-origin-setup) below and implement the appropriate provider before wiring up `BrantaService`.
 
-**3. Apply these rules:**
+**3. Follow the matching Quick Start section below.**
+
+**4. Apply these rules:**
 
 General (all types):
 - Always use `privacy: 'strict'`. Never switch to `'loose'` unless there is no QR scanner and ZK is impossible.
 - Never instantiate `BrantaClient` directly — always use `BrantaService`.
 - Never show an error or "not verified" message when a lookup returns empty or throws. An empty result means the destination is unknown to Branta, not that it is malicious. Show nothing.
 - For `baseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
+- If serving over HTTP, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
 
 Send side (wallets):
 - Prefer `getPaymentsByQrCode` over `getPayments` — it handles multi-value ZK QR payloads correctly.
@@ -129,6 +134,56 @@ const payment = new PaymentBuilder()
   .build();
 
 const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
+```
+
+# HTTP (insecure origin) setup
+
+Browsers disable `crypto.subtle` on HTTP pages. Pass a `BrantaCryptoProvider` as the `crypto` option to supply your own implementation. The SDK ships no crypto dependencies — you choose the provider.
+
+**Option A — `@peculiar/webcrypto` (recommended, zero adapter code)**
+
+```bash
+npm i @peculiar/webcrypto
+```
+
+```ts
+import { Crypto } from '@peculiar/webcrypto';
+import { BrantaServerBaseUrl } from '@branta-ops/branta';
+import { BrantaService } from '@branta-ops/branta/v2';
+
+const crypto = new Crypto();
+const service = new BrantaService(
+  { baseUrl: BrantaServerBaseUrl.Production, privacy: 'strict' },
+  { crypto },
+);
+
+// On the receive side, use createPaymentBuilder() so the builder
+// shares the same crypto instance:
+const payment = service.createPaymentBuilder()
+  .addDestination('...', 'bitcoin_address')
+  .setZk()
+  .build();
+```
+
+`@peculiar/webcrypto` implements the full Web Crypto API and satisfies `BrantaCryptoProvider` with no adapter code.
+
+**Option B — `@noble` packages (zero transitive dependencies)**
+
+```bash
+npm i @noble/hashes @noble/ciphers
+```
+
+```ts
+import { createNobleCryptoProvider } from '@branta-ops/branta';
+import { sha256 } from '@noble/hashes/sha256';
+import { hmac } from '@noble/hashes/hmac';
+import { gcm } from '@noble/ciphers/aes';
+import { randomBytes } from '@noble/hashes/utils';
+
+const service = new BrantaService(
+  { baseUrl: BrantaServerBaseUrl.Production, privacy: 'strict' },
+  { crypto: createNobleCryptoProvider({ sha256, hmac, gcm, randomBytes }) },
+);
 ```
 
 # Release

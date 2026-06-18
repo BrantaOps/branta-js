@@ -1,3 +1,4 @@
+import type { BrantaCryptoProvider } from '../index.js';
 import { BrantaClientOptions } from '../classes/brantaClientOptions.js';
 import { BrantaServerBaseUrl, BrantaServerBaseUrls } from '../enums/brantaServerBaseUrl.js';
 import { DestinationType } from '../enums/destinationType.js';
@@ -5,10 +6,10 @@ import { PrivacyMode } from '../enums/privacyMode.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
-const subtle = (): SubtleCrypto => {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
+const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
+  const c = crypto ?? (globalThis as { crypto?: Pick<Crypto, 'subtle'> }).crypto;
   if (!c?.subtle) {
-    throw new Error('Web Crypto API is not available. See README for React Native polyfill instructions.');
+    throw new Error('Web Crypto API is not available. Pass a crypto provider via BrantaServiceOptions or see README for setup instructions.');
   }
   return c.subtle;
 };
@@ -66,10 +67,10 @@ export function getHashZkType(value: string): DestinationType | undefined {
   return undefined;
 }
 
-export async function toNormalizedHash(value: string): Promise<string> {
+export async function toNormalizedHash(value: string, crypto?: BrantaCryptoProvider): Promise<string> {
   const normalized = value.toLowerCase();
   const bytes = new TextEncoder().encode(normalized) as Bytes;
-  const hash = new Uint8Array(await subtle().digest('SHA-256', bytes));
+  const hash = new Uint8Array(await resolveSubtle(crypto).digest('SHA-256', bytes));
   let hex = '';
   for (let i = 0; i < hash.length; i++) {
     hex += hash[i]!.toString(16).padStart(2, '0').toUpperCase();

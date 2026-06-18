@@ -1,3 +1,4 @@
+import type { BrantaCryptoProvider } from '../../index.js';
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
 import { BrantaPaymentException } from '../../exceptions/brantaPaymentException.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../../extensions/brantaExtensions.js';
@@ -7,19 +8,20 @@ import { paymentFromApi, paymentToApi } from './serialization.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
-const subtle = (): SubtleCrypto => {
-  const c = (globalThis as { crypto?: Crypto }).crypto;
+const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
+  const c = crypto ?? (globalThis as { crypto?: Pick<Crypto, 'subtle'> }).crypto;
   if (!c?.subtle) {
-    throw new Error('Web Crypto API is not available. See README for React Native polyfill instructions.');
+    throw new Error('Web Crypto API is not available. Pass a crypto provider via BrantaServiceOptions or see README for setup instructions.');
   }
   return c.subtle;
 };
 
 const utf8Bytes = (text: string): Bytes => new TextEncoder().encode(text);
 
-const hmacSha256Hex = async (keyBytes: Bytes, messageBytes: Bytes): Promise<string> => {
-  const key = await subtle().importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = new Uint8Array(await subtle().sign('HMAC', key, messageBytes));
+const hmacSha256Hex = async (keyBytes: Bytes, messageBytes: Bytes, crypto?: BrantaCryptoProvider): Promise<string> => {
+  const subtle = resolveSubtle(crypto);
+  const key = await subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = new Uint8Array(await subtle.sign('HMAC', key, messageBytes));
   let hex = '';
   for (let i = 0; i < signature.length; i++) hex += signature[i]!.toString(16).padStart(2, '0');
   return hex;
@@ -30,10 +32,12 @@ type FetchImpl = typeof fetch;
 export class BrantaClient implements IBrantaClient {
   private readonly defaultOptions?: BrantaClientOptions;
   private readonly fetchImpl: FetchImpl;
+  private readonly crypto?: BrantaCryptoProvider;
 
-  constructor(defaultOptions?: BrantaClientOptions, fetchImpl?: FetchImpl) {
+  constructor(defaultOptions?: BrantaClientOptions, fetchImpl?: FetchImpl, crypto?: BrantaCryptoProvider) {
     if (defaultOptions !== undefined) this.defaultOptions = defaultOptions;
     this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
+    this.crypto = crypto;
   }
 
   async getPayments(destinationValue: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<Payment[]> {
@@ -121,7 +125,7 @@ export class BrantaClient implements IBrantaClient {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const trimmedBase = baseUrl.replace(/\/+$/, '');
     const message = `POST|${trimmedBase}/v2/payments|${json}|${timestamp}`;
-    const signature = await hmacSha256Hex(utf8Bytes(hmacSecret), utf8Bytes(message));
+    const signature = await hmacSha256Hex(utf8Bytes(hmacSecret), utf8Bytes(message), this.crypto);
 
     headers['X-HMAC-Signature'] = signature;
     headers['X-HMAC-Timestamp'] = timestamp;
