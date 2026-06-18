@@ -1,9 +1,12 @@
+import type { BrantaCryptoProvider } from '../../index.js';
 import { DestinationType } from '../../enums/destinationType.js';
 import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
 
 export class PaymentBuilder {
   private readonly payment: Payment = { destinations: [] };
+
+  constructor(private readonly crypto?: Pick<BrantaCryptoProvider, 'randomUUID'>) {}
 
   addDestination(address: string, type?: DestinationType): this {
     const destination: Destination = {
@@ -19,7 +22,7 @@ export class PaymentBuilder {
     const destination = this.payment.destinations[this.payment.destinations.length - 1];
     if (destination) {
       destination.isZk = true;
-      destination.zkId = crypto.randomUUID();
+      destination.zkId = (this.crypto ?? globalThis.crypto).randomUUID();
     }
     return this;
   }
