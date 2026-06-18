@@ -84,9 +84,9 @@ export class BrantaService implements IBrantaService {
 
     const keys: Record<string, string> = {};
     for (const payment of payments) {
-      await this.decryptDestinations(payment.destinations, lookupValue, encryptionKey, undefined, keys);
+      await this.decryptDestinations(payment, lookupValue, encryptionKey, undefined, keys);
       for (const value of additionalHashValues) {
-        await this.decryptHashZkDestinations(payment.destinations, value, keys);
+        await this.decryptHashZkDestinations(payment, value, keys);
       }
     }
 
@@ -94,7 +94,7 @@ export class BrantaService implements IBrantaService {
   }
 
   private async decryptHashZkDestinations(
-    destinations: Destination[],
+    payment: Payment,
     plainValue: string,
     keys: Record<string, string>,
   ): Promise<void> {
@@ -102,7 +102,7 @@ export class BrantaService implements IBrantaService {
     if (hashZkType === undefined) return;
 
     const key = await toNormalizedHash(plainValue, this.crypto);
-    for (const destination of destinations) {
+    for (const destination of payment.destinations) {
       if (!destination.isZk || destination.type !== hashZkType) continue;
       try {
         destination.value = await this.aesEncryption.decrypt(destination.value, key);
@@ -110,6 +110,7 @@ export class BrantaService implements IBrantaService {
         if (destination.zkId !== undefined && !(destination.zkId in keys)) {
           keys[destination.zkId] = key;
         }
+        await this.tryDecryptMetadata(payment, destination, key);
       } catch {
         // Key didn't match this destination — leave it encrypted.
       }
@@ -151,20 +152,20 @@ export class BrantaService implements IBrantaService {
 
     const keys: Record<string, string> = {};
     for (const payment of payments) {
-      await this.decryptDestinations(payment.destinations, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
+      await this.decryptDestinations(payment, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
     }
 
     return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
   }
 
   private async decryptDestinations(
-    destinations: Destination[],
+    payment: Payment,
     destinationValue: string,
     encryptionKey: string | undefined,
     hashZkType: DestinationType | undefined,
     keys: Record<string, string>,
   ): Promise<void> {
-    for (const destination of destinations) {
+    for (const destination of payment.destinations) {
       destination.isEncrypted = !!destination.isZk;
       if (!destination.isZk) continue;
 
@@ -176,6 +177,7 @@ export class BrantaService implements IBrantaService {
           if (destination.zkId !== undefined && !(destination.zkId in keys)) {
             keys[destination.zkId] = encryptionKey;
           }
+          await this.tryDecryptMetadata(payment, destination, encryptionKey);
         } catch {
           // Key didn't match this destination — leave it encrypted.
         }
@@ -187,10 +189,22 @@ export class BrantaService implements IBrantaService {
           if (destination.zkId !== undefined && !(destination.zkId in keys)) {
             keys[destination.zkId] = key;
           }
+          await this.tryDecryptMetadata(payment, destination, key);
         } catch {
           // Key didn't match this destination — leave it encrypted.
         }
       }
+    }
+  }
+
+  private async tryDecryptMetadata(payment: Payment, destination: Destination, keyUsed: string): Promise<void> {
+    if (destination.encryptedDek === undefined || payment.metadata == null || payment.isMetadataDecrypted) return;
+    try {
+      const dek = await this.aesEncryption.decrypt(destination.encryptedDek, keyUsed);
+      payment.metadata = await this.aesEncryption.decrypt(payment.metadata, dek);
+      payment.isMetadataDecrypted = true;
+    } catch {
+      // DEK decryption failed — leave metadata as-is.
     }
   }
 
@@ -208,6 +222,12 @@ export class BrantaService implements IBrantaService {
       );
     }
 
+    let dek: string | undefined;
+    if (payment.metadata != null && payment.destinations.some((d) => d.isZk)) {
+      dek = this.secretGenerator.generate();
+      payment.metadata = await this.aesEncryption.encrypt(payment.metadata, dek, false);
+    }
+
     const secret = this.secretGenerator.generate();
     const encryptedToKey: Record<string, string> = {};
 
@@ -217,6 +237,9 @@ export class BrantaService implements IBrantaService {
       if (destination.type === DestinationType.BitcoinAddress) {
         destination.value = await this.aesEncryption.encrypt(destination.value, secret, this.secretGenerator.deterministicNonce);
         encryptedToKey[destination.value] = secret;
+        if (dek !== undefined) {
+          destination.encryptedDek = await this.aesEncryption.encrypt(dek, secret, false);
+        }
       } else {
         const hashZkType = getHashZkType(destination.value);
         if (hashZkType === undefined) {
@@ -226,6 +249,9 @@ export class BrantaService implements IBrantaService {
         const key = await toNormalizedHash(normalizedValue, this.crypto);
         destination.value = await this.aesEncryption.encrypt(normalizedValue, key, true);
         encryptedToKey[destination.value] = key;
+        if (dek !== undefined) {
+          destination.encryptedDek = await this.aesEncryption.encrypt(dek, key, false);
+        }
       }
     }
 

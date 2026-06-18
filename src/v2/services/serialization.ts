@@ -9,6 +9,7 @@ export const destinationToApi = (destination: Destination): Record<string, unkno
   };
   if (destination.type !== undefined) result['type'] = destination.type;
   if (destination.zkId !== undefined) result['zk_id'] = destination.zkId;
+  if (destination.encryptedDek !== undefined) result['encrypted_dek'] = destination.encryptedDek;
   return result;
 };
 
@@ -23,6 +24,9 @@ export const destinationFromApi = (raw: Record<string, unknown>): Destination =>
   }
   if (raw['zk_id'] !== undefined && raw['zk_id'] !== null) {
     destination.zkId = String(raw['zk_id']);
+  }
+  if (raw['encrypted_dek'] !== undefined && raw['encrypted_dek'] !== null) {
+    destination.encryptedDek = String(raw['encrypted_dek']);
   }
   return destination;
 };

@@ -7,4 +7,5 @@ export interface Destination {
   isEncrypted?: boolean;
   type?: DestinationType;
   zkId?: string;
+  encryptedDek?: string;
 }
