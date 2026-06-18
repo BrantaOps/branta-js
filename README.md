@@ -17,9 +17,9 @@ If they are on the receive side, ask one follow-up:
 - **Platform** — single-tenant, one API key.
 - **Parent Platform** — multi-tenant, manages multiple child platforms each with their own API key and HMAC secret.
 
-**2. Ask whether their app is served over HTTPS or HTTP:**
-- **HTTPS** — no extra setup needed; `crypto.subtle` is available by default.
-- **HTTP** — browsers block `crypto.subtle` on insecure origins. The SDK accepts a `crypto` option so you can supply a polyfill. See [HTTP (insecure origin) setup](#http-insecure-origin-setup) below and implement the appropriate provider before wiring up `BrantaService`.
+**2. Ask what environment the app runs in:**
+- **Browser over HTTPS** — no extra setup needed; `crypto.subtle` is available by default.
+- **Browser over HTTP** or **React Native / Expo** — `crypto.subtle` is not available. The SDK accepts a `crypto` option so you can supply a provider. See [Crypto provider setup](#crypto-provider-setup) below and implement the appropriate provider before wiring up `BrantaService`.
 
 **3. Follow the matching Quick Start section below.**
 
@@ -30,7 +30,7 @@ General (all types):
 - Never instantiate `BrantaClient` directly — always use `BrantaService`.
 - Never show an error or "not verified" message when a lookup returns empty or throws. An empty result means the destination is unknown to Branta, not that it is malicious. Show nothing.
 - For `baseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
-- If serving over HTTP, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
+- If serving over HTTP or running in React Native / Expo, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
 
 Send side (wallets):
 - Prefer `getPaymentsByQrCode` over `getPayments` — it handles multi-value ZK QR payloads correctly.
@@ -136,9 +136,14 @@ const payment = new PaymentBuilder()
 const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
 ```
 
-# HTTP (insecure origin) setup
+# Crypto provider setup
 
-Browsers disable `crypto.subtle` on HTTP pages. Pass a `BrantaCryptoProvider` as the `crypto` option to supply your own implementation. The SDK ships no crypto dependencies — you choose the provider.
+Some environments do not expose `globalThis.crypto.subtle`:
+
+- **Browsers on HTTP** — browsers block `crypto.subtle` on insecure origins.
+- **React Native / Expo** — `globalThis.crypto.subtle` is not available even on localhost.
+
+Pass a `BrantaCryptoProvider` as the `crypto` option to supply your own implementation. The SDK ships no crypto dependencies — you choose the provider.
 
 **Option A — `@peculiar/webcrypto` (recommended, zero adapter code)**
 
@@ -167,7 +172,7 @@ const payment = service.createPaymentBuilder()
 
 `@peculiar/webcrypto` implements the full Web Crypto API and satisfies `BrantaCryptoProvider` with no adapter code.
 
-**Option B — `@noble` packages (zero transitive dependencies)**
+**Option B — `@noble` packages (zero transitive dependencies, works in React Native)**
 
 ```bash
 npm i @noble/hashes @noble/ciphers
@@ -175,10 +180,10 @@ npm i @noble/hashes @noble/ciphers
 
 ```ts
 import { createNobleCryptoProvider } from '@branta-ops/branta';
-import { sha256 } from '@noble/hashes/sha256';
-import { hmac } from '@noble/hashes/hmac';
-import { gcm } from '@noble/ciphers/aes';
-import { randomBytes } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hmac } from '@noble/hashes/hmac.js';
+import { gcm } from '@noble/ciphers/aes.js';
+import { randomBytes } from '@noble/hashes/utils.js';
 
 const service = new BrantaService(
   { baseUrl: BrantaServerBaseUrl.Production, privacy: 'strict' },
