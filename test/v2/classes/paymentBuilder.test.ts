@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import { DestinationType } from '../../../src/enums/destinationType.js';
 import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
-import { destinationToApi } from '../../../src/v2/services/serialization.js';
+import { destinationToApi, paymentToApi } from '../../../src/v2/services/serialization.js';
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const Bolt11Invoice = 'lnbc100n1ptest';
@@ -98,5 +98,65 @@ describe('PaymentBuilder', () => {
 
     expect(payment.metadata).toContain('"orderId"');
     expect(payment.metadata).toContain('"123"');
+  });
+
+  test('setChildPlatform_setsName', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setChildPlatform('Acme')
+      .build();
+
+    expect(payment.childPlatform!.name).toBe('Acme');
+  });
+
+  test('setChildPlatform_optionalUrlsUndefinedByDefault', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setChildPlatform('Acme')
+      .build();
+
+    expect(payment.childPlatform!.logoUrl).toBeUndefined();
+    expect(payment.childPlatform!.logoLightUrl).toBeUndefined();
+  });
+
+  test('setChildPlatform_withUrls_setsUrls', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setChildPlatform('Acme', 'https://example.com/logo.png', 'https://example.com/logo-light.png')
+      .build();
+
+    expect(payment.childPlatform!.logoUrl).toBe('https://example.com/logo.png');
+    expect(payment.childPlatform!.logoLightUrl).toBe('https://example.com/logo-light.png');
+  });
+
+  test('setChildPlatform_returnsBuilder', () => {
+    const builder = new PaymentBuilder().addDestination(BitcoinAddress);
+    const result = builder.setChildPlatform('Acme');
+
+    expect(result).toBe(builder);
+  });
+
+  test('setChildPlatform_serializesToApi', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setChildPlatform('Acme', 'https://example.com/logo.png')
+      .build();
+
+    const api = paymentToApi(payment);
+    const cp = api['child_platform'] as Record<string, unknown>;
+
+    expect(cp['name']).toBe('Acme');
+    expect(cp['logo_url']).toBe('https://example.com/logo.png');
+    expect(cp['logo_light_url']).toBeUndefined();
+  });
+
+  test('noChildPlatform_omittedFromApi', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .build();
+
+    const api = paymentToApi(payment);
+
+    expect(api['child_platform']).toBeUndefined();
   });
 });

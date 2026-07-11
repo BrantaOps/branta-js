@@ -42,6 +42,13 @@ export const paymentToApi = (payment: Payment): Record<string, unknown> => {
   if (payment.platform !== undefined) result['platform'] = payment.platform;
   if (payment.platformLogoUrl !== undefined) result['platform_logo_url'] = payment.platformLogoUrl;
   if (payment.platformLogoLightUrl !== undefined) result['platform_logo_light_url'] = payment.platformLogoLightUrl;
+  if (payment.childPlatform !== undefined) {
+    const cp: Record<string, unknown> = {};
+    if (payment.childPlatform.name !== undefined) cp['name'] = payment.childPlatform.name;
+    if (payment.childPlatform.logoUrl !== undefined) cp['logo_url'] = payment.childPlatform.logoUrl;
+    if (payment.childPlatform.logoLightUrl !== undefined) cp['logo_light_url'] = payment.childPlatform.logoLightUrl;
+    result['child_platform'] = cp;
+  }
   if (payment.btcPayServerPluginVersion !== undefined) {
     result['btc_pay_server_plugin_version'] = payment.btcPayServerPluginVersion;
   }
