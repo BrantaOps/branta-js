@@ -15,7 +15,9 @@ If you are an AI agent implementing this SDK, follow the steps below exactly. If
 
 If they are on the receive side, ask one follow-up:
 - **Platform** — single-tenant, one API key.
-- **Parent Platform** — multi-tenant, manages multiple child platforms each with their own API key and HMAC secret.
+- **Parent Platform** — multi-tenant, manages multiple child platforms. Two variants:
+  - **Per-client keys** — each child has its own API key and HMAC secret; you scope requests per-call.
+  - **Shared key** — one API key and HMAC secret for all children; tag the child per-payment with `setChildPlatform()`.
 
 **2. Ask what environment the app runs in:**
 - **Browser over HTTPS** — no extra setup needed; `crypto.subtle` is available by default.
@@ -44,9 +46,13 @@ Receive side (platforms):
 - Always call `.setZk()` on the `PaymentBuilder` before calling `addPayment`. Plain-text destinations are rejected in `strict` mode.
 - Store the `secret` returned by `addPayment` alongside the invoice — it is required to reconstruct the verify URL for the wallet.
 
-Receive side (parent platforms), in addition to the platform rules:
-- Include `hmacSecret` in the `BrantaService` options.
-- Pass per-call options to scope requests to the correct child platform's API key.
+Receive side (parent platforms — per-client keys), in addition to the platform rules:
+- Include `hmacSecret` in the `BrantaService` options but omit `defaultApiKey` at service construction.
+- Pass per-call options with each child's `defaultApiKey` to scope requests.
+
+Receive side (parent platforms — shared key), in addition to the platform rules:
+- Include both `defaultApiKey` and `hmacSecret` in the `BrantaService` options.
+- Call `.setChildPlatform(name, logoUrl, logoLightUrl)` on the builder to tag each payment with the child's branding.
 
 # Quick Start
 
@@ -113,7 +119,12 @@ const { payment: response, secret, verifyUrl } = await service.addPayment(paymen
 
 ## For Parent Platforms
 
-Parent Platforms sign requests with HMAC in addition to the API key. Use `strict` privacy mode and ZK destinations.
+Parent platforms sign requests with HMAC. Choose a variant based on how API keys are structured.
+
+<details>
+<summary>Shared key — one API key covers all children (Recommended)</summary>
+
+Construct with a single API key and HMAC secret; identify the child platform per-payment.
 
 ```ts
 import { BrantaServerBaseUrl } from "@branta-ops/branta";
@@ -121,7 +132,35 @@ import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
-  defaultApiKey: "<default-api-key>",
+  defaultApiKey: "<shared-api-key>",
+  hmacSecret: "<hmac-secret>",
+  privacy: 'strict',
+});
+
+const payment = new PaymentBuilder()
+  .setDescription("Testing description")
+  .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
+  .setZk()
+  .setChildPlatform("ChildBrand", "https://example.com/logo.png")
+  .setTtl(600)
+  .build();
+
+const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
+```
+
+</details>
+
+<details>
+<summary>Per-client keys — each child has its own API key</summary>
+
+Construct the service with the shared HMAC secret only; pass each child's API key per-call.
+
+```ts
+import { BrantaServerBaseUrl } from "@branta-ops/branta";
+import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
+
+const service = new BrantaService({
+  baseUrl: BrantaServerBaseUrl.Production,
   hmacSecret: "<hmac-secret>",
   privacy: 'strict',
 });
@@ -133,8 +172,13 @@ const payment = new PaymentBuilder()
   .setTtl(600)
   .build();
 
-const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
+// Scope to the child platform's API key per-call
+const { payment: response, secret, verifyUrl } = await service.addPayment(payment, {
+  defaultApiKey: "<child-api-key>",
+});
 ```
+
+</details>
 
 # Crypto provider setup
 

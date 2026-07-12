@@ -51,6 +51,11 @@ export class PaymentBuilder {
     return this;
   }
 
+  setChildPlatform(name: string, logoUrl?: string, logoLightUrl?: string): this {
+    this.payment.childPlatform = { name, logoUrl, logoLightUrl };
+    return this;
+  }
+
   build(): Payment {
     return this.payment;
   }
