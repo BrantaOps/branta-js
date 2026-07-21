@@ -16,8 +16,8 @@ If you are an AI agent implementing this SDK, follow the steps below exactly. If
 If they are on the receive side, ask one follow-up:
 - **Platform** — single-tenant, one API key.
 - **Parent Platform** — multi-tenant, manages multiple child platforms. Two variants:
-  - **Per-client keys** — each child has its own API key and HMAC secret; you scope requests per-call.
-  - **Shared key** — one API key and HMAC secret for all children; tag the child per-payment with `setChildPlatform()`.
+  - **Per-client keys** — each child has its own API key; requests are signed with the parent HMAC secret; you scope requests per-call.
+  - **Shared key** — one API key for all children (no HMAC); tag the child per-payment with `setChildPlatform()`.
 
 **2. Ask what environment the app runs in:**
 - **Browser over HTTPS** — no extra setup needed; `crypto.subtle` is available by default.
@@ -51,7 +51,7 @@ Receive side (parent platforms — per-client keys), in addition to the platform
 - Pass per-call options with each child's `defaultApiKey` to scope requests.
 
 Receive side (parent platforms — shared key), in addition to the platform rules:
-- Include both `defaultApiKey` and `hmacSecret` in the `BrantaService` options.
+- Include `defaultApiKey` in the `BrantaService` options. Do not include `hmacSecret`.
 - Call `.setChildPlatform(name, logoUrl, logoLightUrl)` on the builder to tag each payment with the child's branding.
 
 # Quick Start
@@ -119,12 +119,12 @@ const { payment: response, secret, verifyUrl } = await service.addPayment(paymen
 
 ## For Parent Platforms
 
-Parent platforms sign requests with HMAC. Choose a variant based on how API keys are structured.
+Choose a variant based on how API keys are structured. Shared key needs only an API key; per-client keys also require HMAC.
 
 <details>
 <summary>Shared key — one API key covers all children (Recommended)</summary>
 
-Construct with a single API key and HMAC secret; identify the child platform per-payment.
+Construct with a single API key; identify the child platform per-payment. No HMAC secret.
 
 ```ts
 import { BrantaServerBaseUrl } from "@branta-ops/branta";
@@ -133,7 +133,6 @@ import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<shared-api-key>",
-  hmacSecret: "<hmac-secret>",
   privacy: 'strict',
 });
 
