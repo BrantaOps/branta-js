@@ -4,7 +4,7 @@ import { BrantaClientOptions } from '../../../src/classes/brantaClientOptions.js
 import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
 import { DestinationType } from '../../../src/enums/destinationType.js';
 import { PrivacyMode } from '../../../src/enums/privacyMode.js';
-import { BrantaPaymentException } from '../../../src/exceptions/brantaPaymentException.js';
+import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../../src/exceptions/brantaPaymentException.js';
 import { toNormalizedHash } from '../../../src/extensions/brantaExtensions.js';
 import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
 import { IAesEncryption } from '../../../src/v2/interfaces/iAesEncryption.js';
@@ -230,6 +230,134 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[1]!.value).toBe(DecryptedBolt11);
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBolt11, Bolt11Hash);
+    });
+  });
+
+  // ===== getPaymentsByQrCode: QR address / decrypted address binding =====
+  // An attacker can swap the plaintext bitcoin: address in a QR code while leaving
+  // branta_id/branta_secret untouched. The SDK must refuse to report a payment as
+  // verified when the address it decrypts differs from the address the QR displays.
+
+  describe('getPaymentsByQrCode address binding', () => {
+    const SwappedBitcoinAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
+    const RegisteredBech32Address = 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq';
+    const UppercaseBech32Qr = RegisteredBech32Address.toUpperCase();
+    const EncryptedBech32Address = 'encrypted-bech32-address';
+    const BaseAddressLower = '1a1zp1ep5qgefi2dmptftl5slmv7divfna';
+
+    const zkBech32Payment = (): Payment =>
+      new PaymentBuilder().addDestination(EncryptedBech32Address, DestinationType.BitcoinAddress).setZk().build();
+
+    test('getPaymentsByQrCode_zkBitcoinUri_swappedAddress_rejects', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${SwappedBitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+    });
+
+    test('getPaymentsByQrCode_zkBitcoinUri_matchingAddress_doesNotThrow', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+
+      await expect(service.getPaymentsByQrCode(qrText)).resolves.toMatchObject({
+        payments: [{ destinations: [{ value: BitcoinAddress }] }],
+      });
+    });
+
+    test('getPaymentsByQrCode_zkBitcoinUri_uppercaseBech32Qr_matchesLowercaseRegistered_doesNotThrow', async () => {
+      aesMock.decrypt.mockImplementation(async (encryptedValue, secret) => {
+        if (encryptedValue === EncryptedBech32Address && secret === Secret) return RegisteredBech32Address;
+        return '';
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBech32Address) return [zkBech32Payment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${UppercaseBech32Qr}?branta_id=${EncryptedBech32Address}&branta_secret=${Secret}`;
+
+      await expect(service.getPaymentsByQrCode(qrText)).resolves.toMatchObject({
+        payments: [{ destinations: [{ value: RegisteredBech32Address }] }],
+      });
+    });
+
+    test('getPaymentsByQrCode_zkBitcoinUri_base58CaseMismatch_rejects', async () => {
+      aesMock.decrypt.mockImplementation(async (encryptedValue, secret) => {
+        if (encryptedValue === EncryptedBitcoinAddress && secret === Secret) return BitcoinAddress;
+        return '';
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      // Base58 is case-sensitive: a lowercased QR address must NOT be treated as a match.
+      const qrText = `bitcoin:${BaseAddressLower}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+    });
+
+    test('getPaymentsByQrCode_lightningQrWithZkParams_noPlainOnChainAddress_decryptsWithoutComparison', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(EncryptedBolt11, DestinationType.Bolt11)
+        .setZk()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .setZk()
+        .build();
+
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBolt11) return [payment];
+        return [];
+      });
+
+      // branta_id/branta_secret here refer to the bolt11 lookup itself (lookupValue), and are
+      // reused as the "encryptionKey" for any BitcoinAddress destination on the returned
+      // payment too, matching existing getPaymentsForZk behavior — so the bitcoin destination
+      // still decrypts successfully. No plaintext on-chain address is present in this QR
+      // though, so there's nothing to compare the decrypted value against, and it must not throw.
+      const qrText = `lightning:${Bolt11Invoice}?branta_id=${EncryptedBolt11}&branta_secret=${Secret}`;
+
+      await expect(service.getPaymentsByQrCode(qrText)).resolves.toMatchObject({
+        payments: [
+          {
+            destinations: [{ value: DecryptedBolt11 }, { value: BitcoinAddress, isEncrypted: false }],
+          },
+        ],
+      });
+    });
+
+    test('getPaymentsByQrCode_combinedZkQr_swappedAddress_rejects', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .setZk()
+        .addDestination(EncryptedBolt11, DestinationType.Bolt11)
+        .setZk()
+        .addDestination(EncryptedArkAddress, DestinationType.ArkAddress)
+        .setZk()
+        .build();
+
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [payment];
+        return [];
+      });
+
+      const qrText = `bitcoin:${SwappedBitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&lightning=${Bolt11Invoice}&ark=${ArkAddress}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
     });
   });
 
