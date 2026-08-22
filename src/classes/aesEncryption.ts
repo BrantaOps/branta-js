@@ -4,10 +4,13 @@ type Bytes = Uint8Array<ArrayBuffer>;
 
 type CryptoLike = Pick<Crypto, 'subtle' | 'getRandomValues'>;
 
+export const WEB_CRYPTO_UNAVAILABLE_MESSAGE =
+  'Web Crypto API is not available. Pass a crypto provider via BrantaServiceOptions or see README for setup instructions.';
+
 const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
   const c = crypto ?? (globalThis as { crypto?: CryptoLike }).crypto;
   if (!c?.subtle) {
-    throw new Error('Web Crypto API is not available. Pass a crypto provider via BrantaServiceOptions or see README for setup instructions.');
+    throw new Error(WEB_CRYPTO_UNAVAILABLE_MESSAGE);
   }
   return c.subtle;
 };
@@ -15,7 +18,7 @@ const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
 const getRandomBytes = (length: number, crypto?: BrantaCryptoProvider): Bytes => {
   const c = crypto ?? (globalThis as { crypto?: CryptoLike }).crypto;
   if (!c?.getRandomValues) {
-    throw new Error('Web Crypto API is not available. Pass a crypto provider via BrantaServiceOptions or see README for setup instructions.');
+    throw new Error(WEB_CRYPTO_UNAVAILABLE_MESSAGE);
   }
   return c.getRandomValues(new Uint8Array(length));
 };

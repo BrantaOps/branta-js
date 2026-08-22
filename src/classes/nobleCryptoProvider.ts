@@ -4,7 +4,12 @@ type HashFn = { (data: Uint8Array): Uint8Array } & object;
 
 export interface NobleDeps {
   sha256: HashFn;
-  hmac: (hash: HashFn, key: Uint8Array, msg: Uint8Array) => Uint8Array;
+  // `hash` here is whatever @noble/hashes' `sha256` actually exports (a CHash: callable,
+  // plus internal metadata like outputLen/blockLen/canXOF). The SDK has no dependency on
+  // @noble/hashes and can't mirror that shape exactly (or track it across versions), so
+  // this is intentionally typed loosely — `hmac` just forwards it straight through to the
+  // real `hmac` function below, which does its own runtime validation.
+  hmac: (hash: any, key: Uint8Array, msg: Uint8Array) => Uint8Array;
   gcm: (key: Uint8Array, nonce: Uint8Array) => { encrypt(data: Uint8Array): Uint8Array; decrypt(data: Uint8Array): Uint8Array };
   randomBytes: (length: number) => Uint8Array;
 }

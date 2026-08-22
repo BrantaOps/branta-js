@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
+import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../../src/classes/aesEncryption.js';
 import { BrantaClientOptions } from '../../../src/classes/brantaClientOptions.js';
 import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
 import { DestinationType } from '../../../src/enums/destinationType.js';
@@ -358,6 +359,63 @@ describe('BrantaService', () => {
 
       await expect(promise).rejects.toThrow(BrantaPaymentException);
       await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+    });
+  });
+
+  describe('getPaymentsByQrCode crypto unavailable', () => {
+    test('getPaymentsByQrCode_zkBitcoinUri_cryptoUnavailable_throwsCryptoUnavailableException', async () => {
+      aesMock.decrypt.mockImplementation(async () => {
+        throw new Error(WEB_CRYPTO_UNAVAILABLE_MESSAGE);
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.CryptoUnavailable });
+    });
+
+    test('getPaymentsByQrCode_hashZkDestination_cryptoUnavailable_throwsCryptoUnavailableException', async () => {
+      const payment = new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).setZk().build();
+
+      aesMock.decrypt.mockImplementation(async (encryptedValue, secret) => {
+        if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) {
+          throw new Error(WEB_CRYPTO_UNAVAILABLE_MESSAGE);
+        }
+        return '';
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBolt11) return [payment];
+        return [];
+      });
+
+      const qrText = `lightning:${Bolt11Invoice}?branta_id=${EncryptedBolt11}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.CryptoUnavailable });
+    });
+
+    test('getPaymentsByQrCode_zkBitcoinUri_wrongKey_leavesDestinationEncrypted_regression', async () => {
+      // A wrong-key / GCM-auth-tag-mismatch failure is the normal privacy-by-design case and
+      // must keep resolving silently — only the crypto-unavailable message is special-cased.
+      aesMock.decrypt.mockImplementation(async () => {
+        throw new Error('OperationError: the operation failed for an operation-specific reason.');
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+
+      await expect(service.getPaymentsByQrCode(qrText)).resolves.toMatchObject({
+        payments: [{ destinations: [{ value: EncryptedBitcoinAddress, isEncrypted: true }] }],
+      });
     });
   });
 

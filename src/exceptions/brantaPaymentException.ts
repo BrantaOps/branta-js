@@ -1,5 +1,6 @@
 export enum BrantaPaymentExceptionReason {
   Tampered = 'tampered',
+  CryptoUnavailable = 'crypto_unavailable',
 }
 
 export class BrantaPaymentException extends Error {

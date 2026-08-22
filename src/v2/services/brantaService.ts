@@ -1,4 +1,5 @@
 import type { BrantaCryptoProvider } from '../../index.js';
+import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../classes/aesEncryption.js';
 import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
 import { DestinationType } from '../../enums/destinationType.js';
@@ -126,7 +127,13 @@ export class BrantaService implements IBrantaService {
           keys[destination.zkId] = key;
         }
         await this.tryDecryptMetadata(payment, destination, key);
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.message.includes(WEB_CRYPTO_UNAVAILABLE_MESSAGE)) {
+          throw new BrantaPaymentException(
+            'Unable to verify this payment: encryption is not available in this environment.',
+            BrantaPaymentExceptionReason.CryptoUnavailable,
+          );
+        }
         // Key didn't match this destination — leave it encrypted.
       }
     }
@@ -190,7 +197,13 @@ export class BrantaService implements IBrantaService {
         let decrypted: string;
         try {
           decrypted = await this.aesEncryption.decrypt(destination.value, encryptionKey);
-        } catch {
+        } catch (err) {
+          if (err instanceof Error && err.message.includes(WEB_CRYPTO_UNAVAILABLE_MESSAGE)) {
+            throw new BrantaPaymentException(
+              'Unable to verify this payment: encryption is not available in this environment.',
+              BrantaPaymentExceptionReason.CryptoUnavailable,
+            );
+          }
           // Key didn't match this destination — leave it encrypted.
           continue;
         }
