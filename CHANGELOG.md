@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [[3.2.1](https://github.com/BrantaOps/branta-js/compare/v3.2.0...v3.2.1)] - 2026-08-24
+
+### Fixed
+- `getPaymentsByQrCode` now verifies that the plaintext Bitcoin address parsed from a scanned QR code matches the address decrypted via `branta_id`/`branta_secret`, throwing `BrantaPaymentException` with `reason: BrantaPaymentExceptionReason.Tampered` on mismatch. Closes a gap where an attacker could swap the visible address in a `bitcoin:` URI while leaving a legitimate, verified `branta_id`/`branta_secret` pair untouched ([#66](https://github.com/BrantaOps/branta-js/pull/66))
+- Distinguish encryption being unavailable in the current environment (e.g. no Web Crypto API) from an ordinary key mismatch — now throws `BrantaPaymentException` with `reason: BrantaPaymentExceptionReason.CryptoUnavailable` instead of silently leaving the destination encrypted
+
 ## [[3.2.0](https://github.com/BrantaOps/branta-js/compare/v3.1.4...v3.2.0)] - 2026-07-17
 
 ### Added
