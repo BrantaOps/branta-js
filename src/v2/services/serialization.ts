@@ -81,6 +81,16 @@ export const paymentFromApi = (raw: Record<string, unknown>): Payment => {
     }
     payment.parentPlatform = parentPlatform;
   }
+  if (raw['child_platform'] !== undefined && raw['child_platform'] !== null) {
+    const cp = raw['child_platform'] as Record<string, unknown>;
+    const childPlatform: Payment['childPlatform'] = {};
+    if (cp['name'] !== undefined && cp['name'] !== null) childPlatform.name = String(cp['name']);
+    if (cp['logo_url'] !== undefined && cp['logo_url'] !== null) childPlatform.logoUrl = String(cp['logo_url']);
+    if (cp['logo_light_url'] !== undefined && cp['logo_light_url'] !== null) {
+      childPlatform.logoLightUrl = String(cp['logo_light_url']);
+    }
+    payment.childPlatform = childPlatform;
+  }
   if (raw['btc_pay_server_plugin_version'] !== undefined && raw['btc_pay_server_plugin_version'] !== null) {
     payment.btcPayServerPluginVersion = String(raw['btc_pay_server_plugin_version']);
   }
