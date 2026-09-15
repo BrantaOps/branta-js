@@ -139,19 +139,27 @@ export class BrantaClient implements IBrantaClient {
       return;
     }
 
-    for (const payment of payments) {
-      const logoUrl = payment.platformLogoUrl;
+    const check = (logoUrl: string | undefined, fieldName: string): void => {
       if (!logoUrl) return;
 
       let logoOrigin: string;
       try {
         logoOrigin = new URL(logoUrl).origin;
       } catch {
-        throw new BrantaPaymentException('platformLogoUrl domain does not match the configured baseUrl domain');
+        throw new BrantaPaymentException(`${fieldName} domain does not match the configured baseUrl domain`);
       }
       if (logoOrigin !== baseOrigin) {
-        throw new BrantaPaymentException('platformLogoUrl domain does not match the configured baseUrl domain');
+        throw new BrantaPaymentException(`${fieldName} domain does not match the configured baseUrl domain`);
       }
+    };
+
+    for (const payment of payments) {
+      check(payment.platformLogoUrl, 'platformLogoUrl');
+      check(payment.platformLogoLightUrl, 'platformLogoLightUrl');
+      check(payment.parentPlatform?.logoUrl, 'parentPlatform.logoUrl');
+      check(payment.parentPlatform?.logoLightUrl, 'parentPlatform.logoLightUrl');
+      check(payment.childPlatform?.logoUrl, 'childPlatform.logoUrl');
+      check(payment.childPlatform?.logoLightUrl, 'childPlatform.logoLightUrl');
     }
   }
 
