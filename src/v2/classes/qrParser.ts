@@ -1,5 +1,5 @@
 import { DestinationType } from '../../enums/destinationType.js';
-import { isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
+import { isArk, isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
@@ -34,7 +34,7 @@ const detectPlainTextType = (value: string): DestinationType | undefined => {
   if (isBolt11(value)) return DestinationType.Bolt11;
   if (startsWithI(value, 'lno')) return DestinationType.Bolt12;
   if (startsWithI(value, 'LNURL')) return DestinationType.LnUrl;
-  if (startsWithI(value, 'ark1')) return DestinationType.ArkAddress;
+  if (isArk(value)) return DestinationType.ArkAddress;
   if (isSilentPayment(value)) return DestinationType.SilentPayment;
   if (isEthereumAddress(value)) return DestinationType.TetherAddress;
   if (isTronAddress(value)) return DestinationType.TetherAddress;
