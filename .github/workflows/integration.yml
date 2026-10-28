@@ -8,6 +8,8 @@ on:
 jobs:
   guardrail:
     runs-on: ubuntu-latest
+    env:
+      BRANTA_INTEGRATION_METRICS_TOKEN: ${{ secrets.BRANTA_INTEGRATION_METRICS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,5 +18,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Require integration metrics token
+        run: |
+          if [ -z "$BRANTA_INTEGRATION_METRICS_TOKEN" ]; then
+            echo "Set the BRANTA_INTEGRATION_METRICS_TOKEN Actions secret to the same value as Guardrail."
+            exit 1
+          fi
       - name: Example QR codes against staging and production
         run: node --experimental-vm-modules node_modules/jest/bin/jest.js test/v2/integration/exampleQrCodes.test.ts --watchman=false

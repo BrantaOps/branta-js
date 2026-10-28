@@ -5,9 +5,19 @@ import { PrivacyMode } from '../../../src/enums/privacyMode.js';
 import { BrantaService } from '../../../src/v2/services/brantaService.js';
 
 const apiKey = process.env.BRANTA_API_KEY;
+const integrationMetricsToken = process.env.BRANTA_INTEGRATION_METRICS_TOKEN;
+
+const fetchLive: typeof fetch = (input, init) => {
+  if (integrationMetricsToken === undefined || integrationMetricsToken === '') {
+    return fetch(input, init);
+  }
+  const headers = new Headers(init?.headers);
+  headers.set('X-Branta-Integration-Token', integrationMetricsToken);
+  return fetch(input, { ...init, headers });
+};
 
 const makeService = (baseUrl: BrantaServerBaseUrl, privacy: PrivacyMode) =>
-  new BrantaService({ baseUrl, defaultApiKey: apiKey, privacy });
+  new BrantaService({ baseUrl, defaultApiKey: apiKey, privacy }, { fetchImpl: fetchLive });
 
 // Live lookups of the published example QR codes. Pull-request CI sets
 // BRANTA_SKIP_INTEGRATION so the build does not depend on Guardrail being up.
