@@ -168,4 +168,36 @@ describe('QRParser', () => {
     expect(result.destinations[1]!.value).toBe('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
     expect(result.destinations[1]!.type).toBe(DestinationType.SilentPayment);
   });
+
+  // URL parsers drop tab/LF/CR anywhere and leading C0 controls before reading the
+  // scheme. Destination typing has to see that same text, or a hidden character
+  // inside "bitcoin" leaves the address untyped and the swap check never runs.
+  test.each([
+    ['tab', 'bitcoi\tn:'],
+    ['line feed', 'bitcoi\nn:'],
+    ['carriage return', 'bitcoi\rn:'],
+    ['leading control', '\x01bitcoin:'],
+  ])('qrParser_controlCharInScheme_%s_typesBitcoinAddress', (_label, prefix) => {
+    const result = new QRParser(`${prefix}1attackeraddr?branta_id=ID1&branta_secret=SEC1`);
+
+    expect(result.isOnChainZk()).toBe(true);
+    expect(result.destination).toBe('1attackeraddr');
+    expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
+    expect(result.onChainEncryptionText).toBe('ID1');
+    expect(result.onChainEncryptionSecret).toBe('SEC1');
+  });
+
+  test('qrParser_tabInsideAddress_usesTheAddressAUrlParserWouldPay', () => {
+    const result = new QRParser('bitcoin:1attac\tkeraddr?branta_id=ID1&branta_secret=SEC1');
+
+    expect(result.destination).toBe('1attackeraddr');
+    expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
+  });
+
+  test('qrParser_tabInsideLightningScheme_stillTypesBolt11', () => {
+    const result = new QRParser('lightnin\tg:lnbc100n1ptest');
+
+    expect(result.destination).toBe('lnbc100n1ptest');
+    expect(result.destinationType).toBe(DestinationType.Bolt11);
+  });
 });

@@ -10,6 +10,20 @@ const COLON_TO_QUESTION = /(?<=:)[^?]*/;
 const LN_ADDRESS_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const ETH_HEX_RE = /^[0-9a-fA-F]{40}$/;
 
+// `new URL()` drops tab/LF/CR anywhere and leading/trailing C0 controls before it
+// reads the scheme. Typing and address extraction have to see that same text, or a
+// control byte inside "bitcoin:" leaves the address untyped and the swap check never runs.
+const normalizeQrText = (qrText: string): string => {
+  let value = qrText.trim();
+  const isC0OrSpace = (code: number): boolean => code <= 0x20;
+  let start = 0;
+  let end = value.length;
+  while (start < end && isC0OrSpace(value.charCodeAt(start))) start++;
+  while (end > start && isC0OrSpace(value.charCodeAt(end - 1))) end--;
+  value = value.slice(start, end);
+  return value.replace(/[\t\n\r]/g, '');
+};
+
 const tryParseUrl = (text: string): URL | undefined => {
   try {
     return new URL(text);
@@ -81,7 +95,7 @@ export class QRParser {
   onChainEncryptionSecret?: string;
 
   constructor(qrText: string) {
-    const text = qrText.trim();
+    const text = normalizeQrText(qrText);
 
     const uri = tryParseUrl(text);
     if (!uri) {
