@@ -9,8 +9,12 @@ const apiKey = process.env.BRANTA_API_KEY;
 const makeService = (baseUrl: BrantaServerBaseUrl, privacy: PrivacyMode) =>
   new BrantaService({ baseUrl, defaultApiKey: apiKey, privacy });
 
+// Live lookups of the published example QR codes. Pull-request CI sets
+// BRANTA_SKIP_INTEGRATION so the build does not depend on Guardrail being up.
+const describeLive = process.env.BRANTA_SKIP_INTEGRATION !== undefined ? describe.skip : describe;
+
 // Production — Loose
-describe('Production', () => {
+describeLive('Production', () => {
   const service = makeService(BrantaServerBaseUrl.Production, PrivacyMode.Loose);
 
   const onChain = 'bitcoin:bc1qu3k6geqdjncaarsu2vq56tt8php5vsug9kasmq';
@@ -49,7 +53,7 @@ describe('Production', () => {
 });
 
 // Production — Strict (plain-text addresses return empty)
-describe('Production (strict)', () => {
+describeLive('Production (strict)', () => {
   const service = makeService(BrantaServerBaseUrl.Production, PrivacyMode.Strict);
 
   const onChain = 'bitcoin:bc1qu3k6geqdjncaarsu2vq56tt8php5vsug9kasmq';
@@ -88,7 +92,7 @@ describe('Production (strict)', () => {
 });
 
 // Staging — Loose
-describe('Staging', () => {
+describeLive('Staging', () => {
   const service = makeService(BrantaServerBaseUrl.Staging, PrivacyMode.Loose);
 
   const onChain = 'bitcoin:bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr';
@@ -127,7 +131,7 @@ describe('Staging', () => {
 });
 
 // Staging — Strict (plain-text addresses return empty)
-describe('Staging (strict)', () => {
+describeLive('Staging (strict)', () => {
   const service = makeService(BrantaServerBaseUrl.Staging, PrivacyMode.Strict);
 
   const onChain = 'bitcoin:bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr';
