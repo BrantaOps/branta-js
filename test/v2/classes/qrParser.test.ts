@@ -100,6 +100,13 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.ArkAddress);
   });
 
+  test('qrParser_signetArkAddress_setsArkAddressType', () => {
+    const result = new QRParser('tark1qqjqtest');
+
+    expect(result.destination).toBe('tark1qqjqtest');
+    expect(result.destinationType).toBe(DestinationType.ArkAddress);
+  });
+
   test('qrParser_silentPaymentAddress_setsSilentPaymentType', () => {
     const result = new QRParser('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw');
 

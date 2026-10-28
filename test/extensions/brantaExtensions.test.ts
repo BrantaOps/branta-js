@@ -58,6 +58,11 @@ describe('BrantaExtensions', () => {
     expect(isArk('ARK1QQJQTEST')).toBe(true);
   });
 
+  test('isArk_returnsTrue_forTark1Prefix', () => {
+    expect(isArk('tark1qqjqtest')).toBe(true);
+    expect(isArk('TARK1QQJQTEST')).toBe(true);
+  });
+
   test('isArk_returnsFalse_forNonArkValues', () => {
     expect(isArk('bc1qabc')).toBe(false);
   });
@@ -89,6 +94,7 @@ describe('BrantaExtensions', () => {
 
   test('getHashZkType_returnsArkAddress_forArkAddress', () => {
     expect(getHashZkType('ark1qqjqtest')).toBe(DestinationType.ArkAddress);
+    expect(getHashZkType('tark1qqjqtest')).toBe(DestinationType.ArkAddress);
   });
 
   test('getHashZkType_returnsSilentPayment_forSilentPaymentAddress', () => {

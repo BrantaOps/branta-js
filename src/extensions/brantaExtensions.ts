@@ -52,7 +52,8 @@ export function isBolt11(value: string): boolean {
 }
 
 export function isArk(value: string): boolean {
-  return value.toLowerCase().startsWith('ark1');
+  const lower = value.toLowerCase();
+  return lower.startsWith('ark1') || lower.startsWith('tark1');
 }
 
 export function isSilentPayment(value: string): boolean {
