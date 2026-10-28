@@ -262,6 +262,24 @@ describe('BrantaService', () => {
       await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
     });
 
+    test.each([
+      ['tab', `bitcoi\tn:${SwappedBitcoinAddress}`],
+      ['line feed', `bitcoi\nn:${SwappedBitcoinAddress}`],
+      ['carriage return', `bitcoi\rn:${SwappedBitcoinAddress}`],
+      ['leading control', `\x01bitcoin:${SwappedBitcoinAddress}`],
+    ])('getPaymentsByQrCode_zkBitcoinUri_controlCharInScheme_%s_swappedAddress_rejects', async (_label, uri) => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `${uri}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+    });
+
     test('getPaymentsByQrCode_zkBitcoinUri_matchingAddress_doesNotThrow', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
