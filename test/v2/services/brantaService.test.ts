@@ -235,9 +235,9 @@ describe('BrantaService', () => {
   });
 
   // ===== getPaymentsByQrCode: QR address / decrypted address binding =====
-  // An attacker can swap the plaintext bitcoin: address in a QR code while leaving
-  // branta_id/branta_secret untouched. The SDK must refuse to report a payment as
-  // verified when the address it decrypts differs from the address the QR displays.
+  // A hit means every payable instruction in the QR decrypted to a destination on
+  // the record. A decrypted address that differs from the QR is Tampered. A secret
+  // or leg that does not decrypt is not a hit.
 
   describe('getPaymentsByQrCode address binding', () => {
     const SwappedBitcoinAddress = '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2';
@@ -378,6 +378,114 @@ describe('BrantaService', () => {
       await expect(promise).rejects.toThrow(BrantaPaymentException);
       await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
     });
+
+    test('getPaymentsByQrCode_swappedAddressAndWrongSecret_returnsNoPayments', async () => {
+      aesMock.decrypt.mockImplementation(async () => {
+        throw new Error('auth tag mismatch');
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${SwappedBitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=00000000-0000-4000-8000-000000000000`;
+      const result = await service.getPaymentsByQrCode(qrText);
+
+      expect(result.payments).toHaveLength(0);
+    });
+
+    test('getPaymentsByQrCode_attackerLightningLeg_returnsNoPayments', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&lightning=lnbc1attacker`;
+      const result = await service.getPaymentsByQrCode(qrText);
+
+      expect(result.payments).toHaveLength(0);
+    });
+
+    test('getPaymentsByQrCode_attackerArkLeg_returnsNoPayments', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&ark=ark1attacker`;
+      const result = await service.getPaymentsByQrCode(qrText);
+
+      expect(result.payments).toHaveLength(0);
+    });
+
+    test('getPaymentsByQrCode_bip321BcSwap_rejects', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:?bc=${SwappedBitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toThrow(BrantaPaymentException);
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+    });
+
+    test('getPaymentsByQrCode_bip321BcMatch_resolves', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:?bc=${BitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+
+      await expect(service.getPaymentsByQrCode(qrText)).resolves.toMatchObject({
+        payments: [{ destinations: [{ value: BitcoinAddress, isEncrypted: false }] }],
+      });
+    });
+
+    test('getPaymentsByQrCode_pathAndBcDisagree_rejectsBeforeLookup', async () => {
+      const qrText = `bitcoin:${BitcoinAddress}?bc=${SwappedBitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const promise = service.getPaymentsByQrCode(qrText);
+
+      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('getPaymentsByQrCode_payInstruction_returnsNoPayments', async () => {
+      const qrText = `bitcoin:${BitcoinAddress}?pay=bitcoin:${SwappedBitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const result = await service.getPaymentsByQrCode(qrText);
+
+      expect(result.payments).toHaveLength(0);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('getPaymentsByQrCode_lnoInstruction_returnsNoPayments', async () => {
+      const qrText = `bitcoin:${BitcoinAddress}?lno=lno1qqattacker&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const result = await service.getPaymentsByQrCode(qrText);
+
+      expect(result.payments).toHaveLength(0);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('getPaymentsByQrCode_noPayableInstruction_wrongSecret_returnsEncryptedRecord', async () => {
+      aesMock.decrypt.mockImplementation(async () => {
+        throw new Error('auth tag mismatch');
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
+        return [];
+      });
+
+      const qrText = `bitcoin:?branta_id=${EncryptedBitcoinAddress}&branta_secret=00000000-0000-4000-8000-000000000000`;
+      const result = await service.getPaymentsByQrCode(qrText);
+
+      expect(result.payments).toHaveLength(1);
+      expect(result.payments[0]!.destinations[0]).toMatchObject({
+        value: EncryptedBitcoinAddress,
+        isEncrypted: true,
+      });
+    });
   });
 
   describe('getPaymentsByQrCode crypto unavailable', () => {
@@ -418,9 +526,8 @@ describe('BrantaService', () => {
       await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.CryptoUnavailable });
     });
 
-    test('getPaymentsByQrCode_zkBitcoinUri_wrongKey_leavesDestinationEncrypted_regression', async () => {
-      // A wrong-key / GCM-auth-tag-mismatch failure is the normal privacy-by-design case and
-      // must keep resolving silently — only the crypto-unavailable message is special-cased.
+    test('getPaymentsByQrCode_zkBitcoinUri_wrongKey_returnsNoPayments', async () => {
+      // The address in the QR was not bound. A wrong key must not come back as a verified card.
       aesMock.decrypt.mockImplementation(async () => {
         throw new Error('OperationError: the operation failed for an operation-specific reason.');
       });
@@ -430,10 +537,9 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const result = await service.getPaymentsByQrCode(qrText);
 
-      await expect(service.getPaymentsByQrCode(qrText)).resolves.toMatchObject({
-        payments: [{ destinations: [{ value: EncryptedBitcoinAddress, isEncrypted: true }] }],
-      });
+      expect(result.payments).toHaveLength(0);
     });
   });
 

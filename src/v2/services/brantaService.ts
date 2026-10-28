@@ -24,10 +24,27 @@ import { Payment } from '../models/payment.js';
 import { PaymentsResult } from '../models/paymentsResult.js';
 import { BrantaClient } from './brantaClient.js';
 
+const TAMPERED_MESSAGE =
+  'The Bitcoin address in the QR code does not match the address verified by Branta. The QR code may have been tampered with.';
+
 const addressesMatch = (a: string, b: string): boolean => {
-  const isBech32 = (v: string): boolean => v.toLowerCase().startsWith('bc1');
+  const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
   if (isBech32(a) && isBech32(b)) return a.toLowerCase() === b.toLowerCase();
   return a === b;
+};
+
+const uniformOnChainAddress = (parser: QRParser): string | undefined => {
+  const addresses = parser.destinations
+    .filter((d) => d.type === DestinationType.BitcoinAddress && d.value.trim() !== '')
+    .map((d) => d.value);
+  if (addresses.length === 0) return undefined;
+  const first = addresses[0]!;
+  for (const address of addresses.slice(1)) {
+    if (!addressesMatch(first, address)) {
+      throw new BrantaPaymentException(TAMPERED_MESSAGE, BrantaPaymentExceptionReason.Tampered);
+    }
+  }
+  return first;
 };
 
 export interface BrantaServiceOptions {
@@ -64,17 +81,22 @@ export class BrantaService implements IBrantaService {
 
   async getPaymentsByQrCode(qrText: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<PaymentsResult> {
     const parser = new QRParser(qrText);
+    const expectedOnChainAddress = uniformOnChainAddress(parser);
+
+    if (parser.hasUnverifiableInstruction) {
+      const lookup = parser.onChainEncryptionText ?? parser.destination ?? '';
+      return { payments: [], verifyUrl: this.buildVerifyUrl(options, lookup) };
+    }
 
     if (parser.isOnChainZk()) {
       const additionalValues = parser.destinations
         .filter((d) => getHashZkType(d.value) !== undefined)
         .map((d) => d.value);
-      const onChainAddress = parser.destinations.find((d) => d.type === DestinationType.BitcoinAddress)?.value;
       return this.getPaymentsForZk(
         parser.onChainEncryptionText!,
         parser.onChainEncryptionSecret,
         additionalValues,
-        onChainAddress,
+        expectedOnChainAddress,
         options,
         signal,
       );
@@ -99,25 +121,36 @@ export class BrantaService implements IBrantaService {
     const payments = await this.client.getPayments(lookupValue, options, signal);
 
     const keys: Record<string, string> = {};
+    const bound: Payment[] = [];
     for (const payment of payments) {
-      await this.decryptDestinations(payment, lookupValue, encryptionKey, undefined, keys, expectedOnChainAddress);
+      const onChainBound = await this.decryptDestinations(
+        payment,
+        lookupValue,
+        encryptionKey,
+        undefined,
+        keys,
+        expectedOnChainAddress,
+      );
+      let hashesBound = true;
       for (const value of additionalHashValues) {
-        await this.decryptHashZkDestinations(payment, value, keys);
+        if (!(await this.decryptHashZkDestinations(payment, value, keys))) hashesBound = false;
       }
+      if (onChainBound && hashesBound) bound.push(payment);
     }
 
-    return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
+    return { payments: bound, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
   }
 
   private async decryptHashZkDestinations(
     payment: Payment,
     plainValue: string,
     keys: Record<string, string>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const hashZkType = getHashZkType(plainValue);
-    if (hashZkType === undefined) return;
+    if (hashZkType === undefined) return false;
 
     const key = await toNormalizedHash(plainValue, this.crypto);
+    let bound = false;
     for (const destination of payment.destinations) {
       if (!destination.isZk || destination.type !== hashZkType) continue;
       try {
@@ -127,6 +160,7 @@ export class BrantaService implements IBrantaService {
           keys[destination.zkId] = key;
         }
         await this.tryDecryptMetadata(payment, destination, key);
+        bound = true;
       } catch (err) {
         if (err instanceof Error && err.message.includes(WEB_CRYPTO_UNAVAILABLE_MESSAGE)) {
           throw new BrantaPaymentException(
@@ -137,6 +171,7 @@ export class BrantaService implements IBrantaService {
         // Key didn't match this destination — leave it encrypted.
       }
     }
+    return bound;
   }
 
   async getPayments(
@@ -187,7 +222,8 @@ export class BrantaService implements IBrantaService {
     hashZkType: DestinationType | undefined,
     keys: Record<string, string>,
     expectedOnChainAddress?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
+    let onChainBound = expectedOnChainAddress === undefined;
     for (const destination of payment.destinations) {
       destination.isEncrypted = !!destination.isZk;
       if (!destination.isZk) continue;
@@ -211,11 +247,9 @@ export class BrantaService implements IBrantaService {
           console.log(
             `[branta] address mismatch — QR: ${expectedOnChainAddress}, verified: ${decrypted}`,
           );
-          throw new BrantaPaymentException(
-            'The Bitcoin address in the QR code does not match the address verified by Branta. The QR code may have been tampered with.',
-            BrantaPaymentExceptionReason.Tampered,
-          );
+          throw new BrantaPaymentException(TAMPERED_MESSAGE, BrantaPaymentExceptionReason.Tampered);
         }
+        if (expectedOnChainAddress !== undefined) onChainBound = true;
         destination.value = decrypted;
         destination.isEncrypted = false;
         if (destination.zkId !== undefined && !(destination.zkId in keys)) {
@@ -236,6 +270,7 @@ export class BrantaService implements IBrantaService {
         }
       }
     }
+    return onChainBound;
   }
 
   private async tryDecryptMetadata(payment: Payment, destination: Destination, keyUsed: string): Promise<void> {
