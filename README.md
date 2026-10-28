@@ -60,7 +60,7 @@ Receive side (parent platforms — shared key), in addition to the platform rule
 
 Wallets should use `strict` privacy mode. Two flows are supported:
 
-- **Copy/paste**: call `getPayments` with the pasted text. Plain-text on-chain addresses will not return results in strict mode — they must be ZK-encoded. Lightning destinations (bolt11, bolt12, ln_url, ln_address) work as plain text.
+- **Copy/paste**: call `getPayments` with the pasted text. On-chain addresses resolve in strict mode only when you also pass the ZK secret. bolt11, Ark, and Silent Payments resolve from the pasted value alone: the SDK hash-ZKs them, and no secret is required.
 - **QR scan**: call `getPaymentsByQrCode` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
 
 Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
