@@ -9,7 +9,7 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 ## Package layout
 - `src/index.ts` — shared exports (`BrantaServerBaseUrl`, `DestinationType`, options, exceptions, AES helpers).
 - `src/v2/index.ts` — the V2 API surface exported as the `@branta-ops/branta/v2` subpath: `BrantaService`, `BrantaClient`, `PaymentBuilder`, `QRParser`, `GuidSecretGenerator`, plus models and interfaces.
-- `src/v2/services/brantaService.ts` — orchestrates ZK encrypt/decrypt around HTTP calls. `brantaClient.ts` is the raw HTTP layer; do not call it directly from consumer code.
+- `src/v2/services/brantaService.ts` — orchestrates AES encrypt/decrypt around HTTP calls. `brantaClient.ts` is the raw HTTP layer; do not call it directly from consumer code.
 - `src/v2/classes/paymentBuilder.ts` — builder for `Payment` objects (`setDescription`, `addDestination`, `setTtl`).
 - `src/classes/aesEncryption.ts` / `aesEncryptionService.ts` — the AES primitives shared with V2.
 - `test/` mirrors `src/` (Jest with `ts-jest` ESM preset; test files end in `.test.ts`).
@@ -21,9 +21,9 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 - Release: `npm login`, `npm version major|minor|patch`, `npm publish`. `prepublishOnly` rebuilds.
 
 ## Key behaviors to preserve when editing the SDK
-- **Plain-text destinations are not supported.** `verify` is the only lookup: QR scan and clipboard paste use the same call. A recognizable non-hash-ZK destination (a raw on-chain address, including testnet `tb1` / `bcrt1`) returns an empty `PaymentsResult` with a populated `verifyUrl` and does not GET. `addPayment` encrypts every destination; types without a ZK scheme throw.
+- **Unencrypted destinations are not supported.** `verify` is the only lookup: QR scan and clipboard paste use the same call. A raw on-chain address (including testnet `tb1` / `bcrt1`) returns an empty `PaymentsResult` with a populated `verifyUrl` and does not GET. `addPayment` encrypts every destination; types that cannot be encrypted throw.
 - **`verifyUrl` is always returned**, even on a miss. Format: `{baseUrl}/v2/verify/{lookup}` plus a URL fragment built from per-destination encryption keys.
-- **ZK destinations.** Bitcoin addresses are encrypted with a caller-supplied secret (random GUID via `GuidSecretGenerator`); hash-ZK types (bolt11, Ark, silent payments) are encrypted with a deterministic key derived from a normalized hash of the value, so the same input always produces the same lookup token. `addPayment` mutates `payment.destinations[*].value` to the encrypted form before POSTing.
+- **Encryption.** Bitcoin addresses are encrypted with a caller-supplied secret (random UUID via `GuidSecretGenerator`); bolt11, Ark, and silent payments are encrypted with a key derived from a normalized hash of the value, so the same input always produces the same lookup token. `addPayment` mutates `payment.destinations[*].value` to the encrypted form before POSTing. Guardrail still receives `zk: true` and `zk_id` on each destination.
 - **`verify` parses first.** Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
 - **Never surface lookup failures to the user.** README documents the consumer contract: swallow errors and treat empty `payments` as "show nothing."
 

@@ -13,7 +13,7 @@ describe('QRParser', () => {
     expect(result.onChainEncryptionSecret).toBeUndefined();
   });
 
-  test('qrParser_bitcoinUriWithBrantaParams_setsZkProperties', () => {
+  test('qrParser_bitcoinUriWithBrantaParams_setsBrantaParams', () => {
     const result = new QRParser('bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?branta_id=abc%2Bdef%3D&branta_secret=1234');
 
     expect(result.destination).toBe('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
@@ -30,7 +30,7 @@ describe('QRParser', () => {
     expect(result.destinations[1]!.type).toBe(DestinationType.Bolt11);
   });
 
-  test('qrParser_plainBitcoinAddress_setsBitcoinAddressType', () => {
+  test('qrParser_bareBitcoinAddress_setsBitcoinAddressType', () => {
     const result = new QRParser('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
 
     expect(result.destination).toBe('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa');
@@ -38,7 +38,7 @@ describe('QRParser', () => {
   });
 
   test.each(['tb1qtestaddress', 'TB1QTESTADDRESS', 'bcrt1qtestaddress', 'BCRT1QTESTADDRESS'])(
-    'qrParser_plainTestnetBech32_%s_setsBitcoinAddressType',
+    'qrParser_bareTestnetBech32_%s_setsBitcoinAddressType',
     (address) => {
       const result = new QRParser(address);
 
@@ -54,7 +54,7 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.Bolt11);
   });
 
-  test('qrParser_plainBolt11_setsBolt11Type', () => {
+  test('qrParser_bareBolt11_setsBolt11Type', () => {
     const result = new QRParser('lnbc100n1ptest');
 
     expect(result.destination).toBe('lnbc100n1ptest');
@@ -153,7 +153,7 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
     expect(result.destinations[1]!.value).toBe('lnbc100n1ptest');
     expect(result.destinations[1]!.type).toBe(DestinationType.Bolt11);
-    expect(result.isOnChainZk()).toBe(false);
+    expect(result.hasBrantaParams()).toBe(false);
   });
 
   test('qrParser_combinedQRWithMultipleAlts_shouldParse', () => {
@@ -166,7 +166,7 @@ describe('QRParser', () => {
     expect(result.destinations[1]!.type).toBe(DestinationType.Bolt11);
     expect(result.destinations[2]!.value).toBe('ark100testaddress');
     expect(result.destinations[2]!.type).toBe(DestinationType.ArkAddress);
-    expect(result.isOnChainZk()).toBe(false);
+    expect(result.hasBrantaParams()).toBe(false);
   });
 
   test('qrParser_bitcoinUriWithSilentPaymentParam_addsSilentPaymentDestination', () => {
@@ -190,7 +190,7 @@ describe('QRParser', () => {
   ])('qrParser_controlCharInScheme_%s_typesBitcoinAddress', (_label, prefix) => {
     const result = new QRParser(`${prefix}1attackeraddr?branta_id=ID1&branta_secret=SEC1`);
 
-    expect(result.isOnChainZk()).toBe(true);
+    expect(result.hasBrantaParams()).toBe(true);
     expect(result.destination).toBe('1attackeraddr');
     expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
     expect(result.onChainEncryptionText).toBe('ID1');

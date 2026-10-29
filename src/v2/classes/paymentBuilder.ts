@@ -11,7 +11,6 @@ export class PaymentBuilder {
   addDestination(address: string, type?: DestinationType): this {
     const destination: Destination = {
       value: address,
-      isZk: true,
       zkId: (this.crypto ?? globalThis.crypto).randomUUID(),
     };
     if (type !== undefined) destination.type = type;

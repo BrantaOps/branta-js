@@ -5,7 +5,7 @@ export const destinationToApi = (destination: Destination): Record<string, unkno
   const result: Record<string, unknown> = {
     value: destination.value,
     primary: destination.isPrimary ?? false,
-    zk: destination.isZk ?? true,
+    zk: true,
   };
   if (destination.type !== undefined) result['type'] = destination.type;
   if (destination.zkId !== undefined) result['zk_id'] = destination.zkId;
@@ -17,8 +17,11 @@ export const destinationFromApi = (raw: Record<string, unknown>): Destination =>
   const destination: Destination = {
     value: String(raw['value'] ?? ''),
     isPrimary: Boolean(raw['primary'] ?? false),
-    isZk: Boolean(raw['zk'] ?? false),
   };
+  // Guardrail `zk: false` is a leftover unencrypted row — do not try to decrypt it.
+  if (!Boolean(raw['zk'] ?? false)) {
+    destination.isEncrypted = false;
+  }
   if (raw['type'] !== undefined && raw['type'] !== null) {
     destination.type = raw['type'] as Destination['type'];
   }

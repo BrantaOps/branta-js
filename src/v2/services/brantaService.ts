@@ -6,13 +6,13 @@ import { DestinationType } from '../../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../exceptions/brantaPaymentException.js';
 import {
   getBaseUrl,
-  getHashZkType,
+  getDerivedKeyType,
   toNormalizedHash,
   toUrlFragment,
 } from '../../extensions/brantaExtensions.js';
 import { GuidSecretGenerator } from '../classes/guidSecretGenerator.js';
 import { PaymentBuilder } from '../classes/paymentBuilder.js';
-import { detectPlainTextType, QRParser } from '../classes/qrParser.js';
+import { detectDestinationType, QRParser } from '../classes/qrParser.js';
 import { IAesEncryption } from '../interfaces/iAesEncryption.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { IBrantaService } from '../interfaces/iBrantaService.js';
@@ -86,11 +86,11 @@ export class BrantaService implements IBrantaService {
       return { payments: [], verifyUrl: this.buildVerifyUrl(options, lookup) };
     }
 
-    if (parser.isOnChainZk()) {
+    if (parser.hasBrantaParams()) {
       const additionalValues = parser.destinations
-        .filter((d) => getHashZkType(d.value) !== undefined)
+        .filter((d) => getDerivedKeyType(d.value) !== undefined)
         .map((d) => d.value);
-      return this.lookupOnChainZk(
+      return this.lookupByBrantaId(
         parser.onChainEncryptionText!,
         parser.onChainEncryptionSecret,
         additionalValues,
@@ -101,14 +101,14 @@ export class BrantaService implements IBrantaService {
     }
 
     const destination = parser.destination!;
-    if (getHashZkType(destination) === undefined) {
+    if (getDerivedKeyType(destination) === undefined) {
       return { payments: [], verifyUrl: this.buildVerifyUrl(options, destination) };
     }
 
-    return this.lookupHashZk(destination, options, signal);
+    return this.lookupByDerivedKey(destination, options, signal);
   }
 
-  private async lookupOnChainZk(
+  private async lookupByBrantaId(
     lookupValue: string,
     encryptionKey: string | undefined,
     additionalHashValues: string[],
@@ -131,7 +131,7 @@ export class BrantaService implements IBrantaService {
       );
       let hashesBound = true;
       for (const value of additionalHashValues) {
-        if (!(await this.decryptHashZkDestinations(payment, value, keys))) hashesBound = false;
+        if (!(await this.decryptDerivedKeyDestinations(payment, value, keys))) hashesBound = false;
       }
       if (onChainBound && hashesBound) bound.push(payment);
     }
@@ -139,18 +139,18 @@ export class BrantaService implements IBrantaService {
     return { payments: bound, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
   }
 
-  private async decryptHashZkDestinations(
+  private async decryptDerivedKeyDestinations(
     payment: Payment,
     plainValue: string,
     keys: Record<string, string>,
   ): Promise<boolean> {
-    const hashZkType = getHashZkType(plainValue);
-    if (hashZkType === undefined) return false;
+    const derivedType = getDerivedKeyType(plainValue);
+    if (derivedType === undefined) return false;
 
     const key = await toNormalizedHash(plainValue, this.crypto);
     let bound = false;
     for (const destination of payment.destinations) {
-      if (!destination.isZk || destination.type !== hashZkType) continue;
+      if (destination.isEncrypted === false || destination.type !== derivedType) continue;
       try {
         destination.value = await this.aesEncryption.decrypt(destination.value, key);
         destination.isEncrypted = false;
@@ -172,12 +172,12 @@ export class BrantaService implements IBrantaService {
     return bound;
   }
 
-  private async lookupHashZk(
+  private async lookupByDerivedKey(
     destinationValue: string,
     options?: BrantaClientOptions,
     signal?: AbortSignal,
   ): Promise<PaymentsResult> {
-    const hashZkType = getHashZkType(destinationValue)!;
+    const derivedType = getDerivedKeyType(destinationValue)!;
     const normalizedDestination = destinationValue.toLowerCase();
     const lookupValue = await this.aesEncryption.encrypt(
       normalizedDestination,
@@ -189,7 +189,7 @@ export class BrantaService implements IBrantaService {
 
     const keys: Record<string, string> = {};
     for (const payment of payments) {
-      await this.decryptDestinations(payment, normalizedDestination, undefined, hashZkType, keys);
+      await this.decryptDestinations(payment, normalizedDestination, undefined, derivedType, keys);
     }
 
     return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
@@ -199,14 +199,14 @@ export class BrantaService implements IBrantaService {
     payment: Payment,
     destinationValue: string,
     encryptionKey: string | undefined,
-    hashZkType: DestinationType | undefined,
+    derivedType: DestinationType | undefined,
     keys: Record<string, string>,
     expectedOnChainAddress?: string,
   ): Promise<boolean> {
     let onChainBound = expectedOnChainAddress === undefined;
     for (const destination of payment.destinations) {
-      destination.isEncrypted = !!destination.isZk;
-      if (!destination.isZk) continue;
+      if (destination.isEncrypted === false) continue;
+      destination.isEncrypted = true;
 
       if (destination.type === DestinationType.BitcoinAddress) {
         if (encryptionKey === undefined) continue;
@@ -233,7 +233,7 @@ export class BrantaService implements IBrantaService {
           keys[destination.zkId] = encryptionKey;
         }
         await this.tryDecryptMetadata(payment, destination, encryptionKey);
-      } else if (hashZkType !== undefined && destination.type === hashZkType) {
+      } else if (derivedType !== undefined && destination.type === derivedType) {
         const key = await toNormalizedHash(destinationValue, this.crypto);
         try {
           destination.value = await this.aesEncryption.decrypt(destination.value, key);
@@ -276,12 +276,11 @@ export class BrantaService implements IBrantaService {
     const encryptedToKey: Record<string, string> = {};
 
     for (const destination of payment.destinations) {
-      destination.isZk = true;
       if (destination.zkId === undefined) {
         destination.zkId = (this.crypto ?? globalThis.crypto).randomUUID();
       }
 
-      const type = destination.type ?? detectPlainTextType(destination.value);
+      const type = destination.type ?? detectDestinationType(destination.value);
       if (destination.type === undefined && type !== undefined) destination.type = type;
 
       if (type === DestinationType.BitcoinAddress) {
@@ -291,9 +290,9 @@ export class BrantaService implements IBrantaService {
           destination.encryptedDek = await this.aesEncryption.encrypt(dek, secret, false);
         }
       } else {
-        const hashZkType = getHashZkType(destination.value);
-        if (hashZkType === undefined) {
-          throw new BrantaPaymentException(`destination type '${destination.type}' does not support ZK`);
+        const derivedType = getDerivedKeyType(destination.value);
+        if (derivedType === undefined) {
+          throw new BrantaPaymentException(`destination type '${destination.type}' cannot be encrypted`);
         }
         const normalizedValue = destination.value.toLowerCase();
         const key = await toNormalizedHash(normalizedValue, this.crypto);

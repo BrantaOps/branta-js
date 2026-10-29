@@ -1,5 +1,5 @@
 import { DestinationType } from '../../enums/destinationType.js';
-import { getHashZkType, isArk, isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
+import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
@@ -44,7 +44,7 @@ const isEthereumAddress = (value: string): boolean =>
 
 const isTronAddress = (value: string): boolean => value.length === 34 && value.startsWith('T');
 
-const detectPlainTextType = (value: string): DestinationType | undefined => {
+const detectDestinationType = (value: string): DestinationType | undefined => {
   if (isBolt11(value)) return DestinationType.Bolt11;
   if (startsWithI(value, 'lno')) return DestinationType.Bolt12;
   if (startsWithI(value, 'LNURL')) return DestinationType.LnUrl;
@@ -109,7 +109,7 @@ export class QRParser {
 
     const uri = tryParseUrl(text);
     if (!uri) {
-      this.destinations.push({ value: text, type: detectPlainTextType(text) });
+      this.destinations.push({ value: text, type: detectDestinationType(text) });
       return;
     }
 
@@ -119,7 +119,7 @@ export class QRParser {
       if (dest !== undefined) {
         const destType = getDestinationType(text);
         this.destinations.push({ value: dest, type: destType });
-        if (dest !== '' && destType !== DestinationType.BitcoinAddress && getHashZkType(dest) === undefined) {
+        if (dest !== '' && destType !== DestinationType.BitcoinAddress && getDerivedKeyType(dest) === undefined) {
           this.hasUnverifiableInstruction = true;
         }
       }
@@ -131,20 +131,20 @@ export class QRParser {
       const addBindable = (value: string | undefined, type: DestinationType | undefined, onChain: boolean) => {
         if (value === undefined) return;
         this.destinations.push({ value, type });
-        if (value !== '' && !onChain && getHashZkType(value) === undefined) {
+        if (value !== '' && !onChain && getDerivedKeyType(value) === undefined) {
           this.hasUnverifiableInstruction = true;
         }
       };
 
-      addBindable(queryParams.get('lightning'), detectPlainTextType(queryParams.get('lightning') ?? ''), false);
-      addBindable(queryParams.get('bolt12'), detectPlainTextType(queryParams.get('bolt12') ?? ''), false);
-      addBindable(queryParams.get('ark'), detectPlainTextType(queryParams.get('ark') ?? ''), false);
-      addBindable(queryParams.get('silent_payment'), detectPlainTextType(queryParams.get('silent_payment') ?? ''), false);
+      addBindable(queryParams.get('lightning'), detectDestinationType(queryParams.get('lightning') ?? ''), false);
+      addBindable(queryParams.get('bolt12'), detectDestinationType(queryParams.get('bolt12') ?? ''), false);
+      addBindable(queryParams.get('ark'), detectDestinationType(queryParams.get('ark') ?? ''), false);
+      addBindable(queryParams.get('silent_payment'), detectDestinationType(queryParams.get('silent_payment') ?? ''), false);
       addBindable(queryParams.get('bc'), DestinationType.BitcoinAddress, true);
       addBindable(queryParams.get('tb'), DestinationType.BitcoinAddress, true);
-      addBindable(queryParams.get('sp'), detectPlainTextType(queryParams.get('sp') ?? ''), false);
+      addBindable(queryParams.get('sp'), detectDestinationType(queryParams.get('sp') ?? ''), false);
       const lnoValue = queryParams.get('lno');
-      addBindable(lnoValue, lnoValue ? (detectPlainTextType(lnoValue) ?? DestinationType.Bolt12) : undefined, false);
+      addBindable(lnoValue, lnoValue ? (detectDestinationType(lnoValue) ?? DestinationType.Bolt12) : undefined, false);
       if (queryParams.get('pay')) this.hasUnverifiableInstruction = true;
 
       return;
@@ -161,9 +161,9 @@ export class QRParser {
     return this.destinations[0]?.type;
   }
 
-  isOnChainZk(): boolean {
+  hasBrantaParams(): boolean {
     return this.onChainEncryptionText !== undefined && this.onChainEncryptionSecret !== undefined;
   }
 }
 
-export { detectPlainTextType };
+export { detectDestinationType };

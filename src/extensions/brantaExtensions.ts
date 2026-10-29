@@ -52,7 +52,8 @@ export function isSilentPayment(value: string): boolean {
   return lower.startsWith('sp1') || lower.startsWith('tsp1');
 }
 
-export function getHashZkType(value: string): DestinationType | undefined {
+/** bolt11, Ark, and silent payments encrypt with a key derived from the value. */
+export function getDerivedKeyType(value: string): DestinationType | undefined {
   if (isBolt11(value)) return DestinationType.Bolt11;
   if (isArk(value)) return DestinationType.ArkAddress;
   if (isSilentPayment(value)) return DestinationType.SilentPayment;

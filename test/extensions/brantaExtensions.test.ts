@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import { BrantaServerBaseUrl } from '../../src/enums/brantaServerBaseUrl.js';
 import {
-  getHashZkType,
+  getDerivedKeyType,
   getUrl,
   isArk,
   isBolt11,
@@ -86,23 +86,23 @@ describe('BrantaExtensions', () => {
     expect(isSilentPayment('ark1qqjqtest')).toBe(false);
   });
 
-  // getHashZkType
+  // getDerivedKeyType
 
-  test('getHashZkType_returnsBolt11_forBolt11Invoice', () => {
-    expect(getHashZkType('lnbc100n1ptest')).toBe(DestinationType.Bolt11);
+  test('getDerivedKeyType_returnsBolt11_forBolt11Invoice', () => {
+    expect(getDerivedKeyType('lnbc100n1ptest')).toBe(DestinationType.Bolt11);
   });
 
-  test('getHashZkType_returnsArkAddress_forArkAddress', () => {
-    expect(getHashZkType('ark1qqjqtest')).toBe(DestinationType.ArkAddress);
-    expect(getHashZkType('tark1qqjqtest')).toBe(DestinationType.ArkAddress);
+  test('getDerivedKeyType_returnsArkAddress_forArkAddress', () => {
+    expect(getDerivedKeyType('ark1qqjqtest')).toBe(DestinationType.ArkAddress);
+    expect(getDerivedKeyType('tark1qqjqtest')).toBe(DestinationType.ArkAddress);
   });
 
-  test('getHashZkType_returnsSilentPayment_forSilentPaymentAddress', () => {
-    expect(getHashZkType('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(DestinationType.SilentPayment);
+  test('getDerivedKeyType_returnsSilentPayment_forSilentPaymentAddress', () => {
+    expect(getDerivedKeyType('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(DestinationType.SilentPayment);
   });
 
-  test('getHashZkType_returnsUndefined_forBitcoinAddress', () => {
-    expect(getHashZkType('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toBeUndefined();
+  test('getDerivedKeyType_returnsUndefined_forBitcoinAddress', () => {
+    expect(getDerivedKeyType('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toBeUndefined();
   });
 
   // toNormalizedHash

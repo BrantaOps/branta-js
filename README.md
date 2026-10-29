@@ -41,7 +41,7 @@ Send side (wallets):
 - Optionally display `payment.parentPlatform?.logoUrl` / `payment.parentPlatform?.logoLightUrl` as a small secondary badge (e.g. corner icon). This is not required.
 
 Receive side (platforms):
-- `addDestination` encrypts every destination. Types without a ZK scheme (for example Tether) are rejected.
+- `addDestination` encrypts every destination. Types that cannot be encrypted (for example Tether) are rejected.
 - Store the `secret` returned by `addPayment` alongside the invoice — it is required to reconstruct the verify URL for the wallet.
 
 Receive side (parent platforms — per-client keys), in addition to the platform rules:
