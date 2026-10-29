@@ -21,10 +21,10 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 - Release: `npm login`, `npm version major|minor|patch`, `npm publish`. `prepublishOnly` rebuilds.
 
 ## Key behaviors to preserve when editing the SDK
-- **Plain-text destinations are not supported.** `getPayments` throws `BrantaPaymentException` for a recognizable non-hash-ZK destination (a raw on-chain address, even with a secret) and for any other non-hash-ZK value with no secret. `getPaymentsByQrCode` returns an empty `PaymentsResult` with a populated `verifyUrl` for a bare on-chain QR. `addPayment` encrypts every destination; types without a ZK scheme throw.
+- **Plain-text destinations are not supported.** `verify` is the only lookup: QR scan and clipboard paste use the same call. A recognizable non-hash-ZK destination (a raw on-chain address, including testnet `tb1` / `bcrt1`) returns an empty `PaymentsResult` with a populated `verifyUrl` and does not GET. `addPayment` encrypts every destination; types without a ZK scheme throw.
 - **`verifyUrl` is always returned**, even on a miss. Format: `{baseUrl}/v2/verify/{lookup}` plus a URL fragment built from per-destination encryption keys.
 - **ZK destinations.** Bitcoin addresses are encrypted with a caller-supplied secret (random GUID via `GuidSecretGenerator`); hash-ZK types (bolt11, Ark, silent payments) are encrypted with a deterministic key derived from a normalized hash of the value, so the same input always produces the same lookup token. `addPayment` mutates `payment.destinations[*].value` to the encrypted form before POSTing.
-- **Prefer `getPaymentsByQrCode`** for any QR-driven flow — it parses multi-value QR payloads (`branta_id` / `branta_secret` fragments) via `QRParser`. `getPayments` only handles a single destination string.
+- **`verify` parses first.** Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
 - **Never surface lookup failures to the user.** README documents the consumer contract: swallow errors and treat empty `payments` as "show nothing."
 
 ## Conventions

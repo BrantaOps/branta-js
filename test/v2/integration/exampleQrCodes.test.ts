@@ -37,32 +37,32 @@ describeLive('Production', () => {
   const notFound = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
 
   test('on-chain plain text returns empty', async () => {
-    const result = await service.getPaymentsByQrCode(onChain);
+    const result = await service.verify(onChain);
     expect(result.payments).toHaveLength(0);
   }, 15000);
 
   test('lightning returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(lightning);
+    const result = await service.verify(lightning);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('zk on-chain returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(zkOnChain);
+    const result = await service.verify(zkOnChain);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('zk lightning returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(zkLightning);
+    const result = await service.verify(zkLightning);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('zk unified returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(zkUnified);
+    const result = await service.verify(zkUnified);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('not found returns empty', async () => {
-    const result = await service.getPaymentsByQrCode(notFound);
+    const result = await service.verify(notFound);
     expect(result.payments).toHaveLength(0);
   }, 15000);
 });
@@ -82,32 +82,32 @@ describeLive('Staging', () => {
   const notFound = 'bitcoin:bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
 
   test('on-chain plain text returns empty', async () => {
-    const result = await service.getPaymentsByQrCode(onChain);
+    const result = await service.verify(onChain);
     expect(result.payments).toHaveLength(0);
   }, 15000);
 
   test('lightning returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(lightning);
+    const result = await service.verify(lightning);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('zk on-chain returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(zkOnChain);
+    const result = await service.verify(zkOnChain);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('zk lightning returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(zkLightning);
+    const result = await service.verify(zkLightning);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('zk unified returns payment', async () => {
-    const result = await service.getPaymentsByQrCode(zkUnified);
+    const result = await service.verify(zkUnified);
     expect(result.payments.length).toBeGreaterThan(0);
   }, 15000);
 
   test('not found returns empty', async () => {
-    const result = await service.getPaymentsByQrCode(notFound);
+    const result = await service.verify(notFound);
     expect(result.payments).toHaveLength(0);
   }, 15000);
 });

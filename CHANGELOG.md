@@ -9,10 +9,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Removed
 - **BREAKING:** `PrivacyMode` and the `privacy` client option. The SDK is zero-knowledge only: on-chain lookups need `branta_id` / `branta_secret`, hash-ZK types (bolt11, Ark, silent payments) still resolve from the value, and `addPayment` encrypts every destination.
 - **BREAKING:** `PaymentBuilder.setZk()`. `addDestination` marks each destination ZK.
+- **BREAKING:** `getPayments` and `getPaymentsByQrCode`. Wallets call `verify(input)` for both QR scan and clipboard paste.
 
 ### Changed
 - A hash-ZK miss no longer retries the raw string.
-- A raw on-chain address is not looked up even when a secret is passed. `getPayments` treats recognizable non-hash-ZK destinations as plaintext, including testnet `tb1` / `bcrt1`.
+- A raw on-chain address is not looked up. `verify` returns empty for recognizable non-hash-ZK destinations, including testnet `tb1` / `bcrt1`.
 - `addPayment` infers `bitcoin_address` from the value when `type` is omitted, so `addDestination(address)` still encrypts.
 - `destinationToApi` sends `zk: true` when `isZk` is omitted.
 

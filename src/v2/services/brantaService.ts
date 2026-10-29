@@ -23,7 +23,7 @@ import { PaymentsResult } from '../models/paymentsResult.js';
 import { BrantaClient } from './brantaClient.js';
 
 const TAMPERED_MESSAGE =
-  'The Bitcoin address in the QR code does not match the address verified by Branta. The QR code may have been tampered with.';
+  'The Bitcoin address does not match the address verified by Branta. The destination may have been tampered with.';
 
 const addressesMatch = (a: string, b: string): boolean => {
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
@@ -77,8 +77,8 @@ export class BrantaService implements IBrantaService {
     return new PaymentBuilder(this.crypto);
   }
 
-  async getPaymentsByQrCode(qrText: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<PaymentsResult> {
-    const parser = new QRParser(qrText);
+  async verify(input: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<PaymentsResult> {
+    const parser = new QRParser(input);
     const expectedOnChainAddress = uniformOnChainAddress(parser);
 
     if (parser.hasUnverifiableInstruction) {
@@ -90,7 +90,7 @@ export class BrantaService implements IBrantaService {
       const additionalValues = parser.destinations
         .filter((d) => getHashZkType(d.value) !== undefined)
         .map((d) => d.value);
-      return this.getPaymentsForZk(
+      return this.lookupOnChainZk(
         parser.onChainEncryptionText!,
         parser.onChainEncryptionSecret,
         additionalValues,
@@ -105,10 +105,10 @@ export class BrantaService implements IBrantaService {
       return { payments: [], verifyUrl: this.buildVerifyUrl(options, destination) };
     }
 
-    return this.getPayments(destination, undefined, options, signal);
+    return this.lookupHashZk(destination, options, signal);
   }
 
-  private async getPaymentsForZk(
+  private async lookupOnChainZk(
     lookupValue: string,
     encryptionKey: string | undefined,
     additionalHashValues: string[],
@@ -172,32 +172,24 @@ export class BrantaService implements IBrantaService {
     return bound;
   }
 
-  async getPayments(
+  private async lookupHashZk(
     destinationValue: string,
-    destinationEncryptionKey?: string,
     options?: BrantaClientOptions,
     signal?: AbortSignal,
   ): Promise<PaymentsResult> {
-    const hashZkType = getHashZkType(destinationValue);
-
-    if (
-      hashZkType === undefined &&
-      (destinationEncryptionKey === undefined || detectPlainTextType(destinationValue) !== undefined)
-    ) {
-      throw new BrantaPaymentException('Plain-text lookups are not permitted for this destination type.');
-    }
-
-    const normalizedDestination = hashZkType !== undefined ? destinationValue.toLowerCase() : destinationValue;
-    let lookupValue = normalizedDestination;
-    if (hashZkType !== undefined) {
-      lookupValue = await this.aesEncryption.encrypt(normalizedDestination, await toNormalizedHash(normalizedDestination, this.crypto), true);
-    }
+    const hashZkType = getHashZkType(destinationValue)!;
+    const normalizedDestination = destinationValue.toLowerCase();
+    const lookupValue = await this.aesEncryption.encrypt(
+      normalizedDestination,
+      await toNormalizedHash(normalizedDestination, this.crypto),
+      true,
+    );
 
     const payments = await this.client.getPayments(lookupValue, options, signal);
 
     const keys: Record<string, string> = {};
     for (const payment of payments) {
-      await this.decryptDestinations(payment, normalizedDestination, destinationEncryptionKey, hashZkType, keys);
+      await this.decryptDestinations(payment, normalizedDestination, undefined, hashZkType, keys);
     }
 
     return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };

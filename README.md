@@ -34,8 +34,7 @@ General (all types):
 - If serving over HTTP or running in React Native / Expo, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
 
 Send side (wallets):
-- Prefer `getPaymentsByQrCode` over `getPayments` — it handles multi-value ZK QR payloads correctly.
-- Only fall back to `getPayments` for copy/paste flows where there is no QR code.
+- Call `verify` with the scanned QR text or the pasted destination. One method handles both.
 - If `result.payments` is empty or an exception is thrown, render nothing.
 - When `result.payments` is non-empty, display: the platform logo, the platform name (`payment.platform`), and the payment description (`payment.description`). Only render description when non-empty. Make the verification card a clickable link to `result.verifyUrl` — do not display the raw URL.
 - For the platform logo: on dark backgrounds use `payment.platformLogoUrl`. On light backgrounds prefer `payment.platformLogoLightUrl` when available, falling back to `payment.platformLogoUrl`.
@@ -57,10 +56,7 @@ Receive side (parent platforms — shared key), in addition to the platform rule
 
 ## For Wallets
 
-Two flows are supported:
-
-- **Copy/paste**: call `getPayments` with the pasted text. bolt11, Ark, and Silent Payments resolve from the value alone (hash-ZK). A pasted on-chain address cannot be looked up — pass the full URI to `getPaymentsByQrCode` so `branta_id` / `branta_secret` are present.
-- **QR scan**: call `getPaymentsByQrCode` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
+Pass the scanned QR text or the pasted destination to `verify`. bolt11, Ark, and Silent Payments resolve from the value. On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret` (that is how platforms encode a Branta invoice). A bare address returns empty.
 
 Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
 
@@ -72,11 +68,9 @@ const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
 });
 
-async function lookup(input: string, isQrCode: boolean) {
+async function lookup(input: string) {
   try {
-    const result = isQrCode
-      ? await service.getPaymentsByQrCode(input)
-      : await service.getPayments(input);
+    const result = await service.verify(input);
 
     if (result.payments.length === 0) {
       // Not found — show nothing. The address may simply not exist in Branta.
