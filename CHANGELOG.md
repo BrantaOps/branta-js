@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `getPaymentsByQrCode` returns a payment only when every payable instruction in the QR matches a decrypted destination on that record. A swapped address with a rewritten `branta_secret`, an added `lightning=`, `ark=`, or `sp=` leg, or a conflicting `bc=` / `tb=` no longer comes back as verified. `bolt12`, `lno=`, `pay=`, and LNURL return no payments ([#78](https://github.com/BrantaOps/branta-js/pull/78)).
+- A `Tampered` address mismatch no longer prints the QR address and the decrypted address to the console.
+
 ## [[3.2.4](https://github.com/BrantaOps/branta-js/compare/v3.2.3...v3.2.4)] - 2026-10-28
 
 ### Fixed

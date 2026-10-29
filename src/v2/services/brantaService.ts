@@ -244,9 +244,6 @@ export class BrantaService implements IBrantaService {
           continue;
         }
         if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
-          console.log(
-            `[branta] address mismatch — QR: ${expectedOnChainAddress}, verified: ${decrypted}`,
-          );
           throw new BrantaPaymentException(TAMPERED_MESSAGE, BrantaPaymentExceptionReason.Tampered);
         }
         if (expectedOnChainAddress !== undefined) onChainBound = true;
