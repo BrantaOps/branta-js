@@ -526,6 +526,14 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
+    test.each(['tb1qtestaddress', 'bcrt1qtestaddress'])(
+      'getPayments_testnetBech32_%s_withSecret_throws',
+      async (address) => {
+        await expect(service.getPayments(address, Secret)).rejects.toThrow(BrantaPaymentException);
+        expect(clientMock.getPayments).not.toHaveBeenCalled();
+      },
+    );
+
     test('getPayments_shouldReturnEmptyList_whenClientReturnsEmpty', async () => {
       clientMock.getPayments.mockResolvedValue([]);
 
@@ -708,6 +716,41 @@ describe('BrantaService', () => {
   // ===== addPayment =====
 
   describe('addPayment', () => {
+    test('addPayment_bitcoinAddressWithoutType_encryptsWithSecretAndSetsType', async () => {
+      const payment = new PaymentBuilder().addDestination(BitcoinAddress).build();
+      const zkId = payment.destinations[0]!.zkId!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      responsePayment.destinations[0]!.zkId = zkId;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+
+      await service.addPayment(payment);
+
+      expect(aesMock.encrypt).toHaveBeenCalledWith(BitcoinAddress, Secret, false);
+      expect(payment.destinations[0]!.type).toBe(DestinationType.BitcoinAddress);
+      expect(payment.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+    });
+
+    test('addPayment_bolt11WithoutType_encryptsWithHash', async () => {
+      const payment = new PaymentBuilder().addDestination(Bolt11Invoice).build();
+      const zkId = payment.destinations[0]!.zkId!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBolt11, DestinationType.Bolt11)
+        .build();
+      responsePayment.destinations[0]!.zkId = zkId;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+
+      await service.addPayment(payment);
+
+      expect(aesMock.encrypt).toHaveBeenCalledWith(Bolt11Invoice, Bolt11Hash, true);
+      expect(payment.destinations[0]!.value).toBe(EncryptedBolt11);
+    });
+
     test('addPayment_encryptsBitcoinAddressWithSecret', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)

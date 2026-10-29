@@ -289,7 +289,10 @@ export class BrantaService implements IBrantaService {
         destination.zkId = (this.crypto ?? globalThis.crypto).randomUUID();
       }
 
-      if (destination.type === DestinationType.BitcoinAddress) {
+      const type = destination.type ?? detectPlainTextType(destination.value);
+      if (destination.type === undefined && type !== undefined) destination.type = type;
+
+      if (type === DestinationType.BitcoinAddress) {
         destination.value = await this.aesEncryption.encrypt(destination.value, secret, this.secretGenerator.deterministicNonce);
         encryptedToKey[destination.value] = secret;
         if (dek !== undefined) {

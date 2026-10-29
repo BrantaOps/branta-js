@@ -37,6 +37,16 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
   });
 
+  test.each(['tb1qtestaddress', 'TB1QTESTADDRESS', 'bcrt1qtestaddress', 'BCRT1QTESTADDRESS'])(
+    'qrParser_plainTestnetBech32_%s_setsBitcoinAddressType',
+    (address) => {
+      const result = new QRParser(address);
+
+      expect(result.destination).toBe(address);
+      expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
+    },
+  );
+
   test('qrParser_lightningBolt11Uri_setsBolt11Type', () => {
     const result = new QRParser('lightning:lnbc100n1ptest');
 

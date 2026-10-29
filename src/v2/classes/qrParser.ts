@@ -53,7 +53,15 @@ const detectPlainTextType = (value: string): DestinationType | undefined => {
   if (isEthereumAddress(value)) return DestinationType.TetherAddress;
   if (isTronAddress(value)) return DestinationType.TetherAddress;
   if (LN_ADDRESS_RE.test(value)) return DestinationType.LnAddress;
-  if (value.startsWith('1') || value.startsWith('3') || startsWithI(value, 'bc1')) return DestinationType.BitcoinAddress;
+  if (
+    value.startsWith('1') ||
+    value.startsWith('3') ||
+    startsWithI(value, 'bc1') ||
+    startsWithI(value, 'tb1') ||
+    startsWithI(value, 'bcrt1')
+  ) {
+    return DestinationType.BitcoinAddress;
+  }
   return undefined;
 };
 
