@@ -1,5 +1,5 @@
 import { DestinationType } from '../../enums/destinationType.js';
-import { isArk, isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
+import { getHashZkType, isArk, isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
@@ -93,6 +93,8 @@ export class QRParser {
   readonly destinations: QrDestination[] = [];
   onChainEncryptionText?: string;
   onChainEncryptionSecret?: string;
+  /** A payable instruction this SDK cannot bind to a decrypted destination. */
+  hasUnverifiableInstruction = false;
 
   constructor(qrText: string) {
     const text = normalizeQrText(qrText);
@@ -107,32 +109,35 @@ export class QRParser {
     if (scheme === 'bitcoin' || scheme === 'lightning') {
       const dest = getDestination(text);
       if (dest !== undefined) {
-        this.destinations.push({ value: dest, type: getDestinationType(text) });
+        const destType = getDestinationType(text);
+        this.destinations.push({ value: dest, type: destType });
+        if (dest !== '' && destType !== DestinationType.BitcoinAddress && getHashZkType(dest) === undefined) {
+          this.hasUnverifiableInstruction = true;
+        }
       }
 
       const queryParams = parseQueryString(uri.search);
       this.onChainEncryptionText = queryParams.get('branta_id');
       this.onChainEncryptionSecret = queryParams.get('branta_secret');
 
-      const lightningValue = queryParams.get('lightning');
-      if (lightningValue !== undefined) {
-        this.destinations.push({ value: lightningValue, type: detectPlainTextType(lightningValue) });
-      }
+      const addBindable = (value: string | undefined, type: DestinationType | undefined, onChain: boolean) => {
+        if (value === undefined) return;
+        this.destinations.push({ value, type });
+        if (value !== '' && !onChain && getHashZkType(value) === undefined) {
+          this.hasUnverifiableInstruction = true;
+        }
+      };
 
-      const bolt12Value = queryParams.get('bolt12');
-      if (bolt12Value !== undefined) {
-        this.destinations.push({ value: bolt12Value, type: detectPlainTextType(bolt12Value) });
-      }
-
-      const arkValue = queryParams.get('ark');
-      if (arkValue !== undefined) {
-        this.destinations.push({ value: arkValue, type: detectPlainTextType(arkValue) });
-      }
-
-      const silentPaymentValue = queryParams.get('silent_payment');
-      if (silentPaymentValue !== undefined) {
-        this.destinations.push({ value: silentPaymentValue, type: detectPlainTextType(silentPaymentValue) });
-      }
+      addBindable(queryParams.get('lightning'), detectPlainTextType(queryParams.get('lightning') ?? ''), false);
+      addBindable(queryParams.get('bolt12'), detectPlainTextType(queryParams.get('bolt12') ?? ''), false);
+      addBindable(queryParams.get('ark'), detectPlainTextType(queryParams.get('ark') ?? ''), false);
+      addBindable(queryParams.get('silent_payment'), detectPlainTextType(queryParams.get('silent_payment') ?? ''), false);
+      addBindable(queryParams.get('bc'), DestinationType.BitcoinAddress, true);
+      addBindable(queryParams.get('tb'), DestinationType.BitcoinAddress, true);
+      addBindable(queryParams.get('sp'), detectPlainTextType(queryParams.get('sp') ?? ''), false);
+      const lnoValue = queryParams.get('lno');
+      addBindable(lnoValue, lnoValue ? (detectPlainTextType(lnoValue) ?? DestinationType.Bolt12) : undefined, false);
+      if (queryParams.get('pay')) this.hasUnverifiableInstruction = true;
 
       return;
     }

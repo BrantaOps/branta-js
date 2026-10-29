@@ -194,6 +194,36 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.BitcoinAddress);
   });
 
+  test('qrParser_bip321BcAndTb_areOnChainAddresses', () => {
+    const result = new QRParser('bitcoin:?bc=bc1qmerchant&tb=tb1qtest');
+
+    expect(result.destination).toBe('');
+    expect(result.destinations.map((d) => d.value)).toEqual(['', 'bc1qmerchant', 'tb1qtest']);
+    expect(result.destinations[1]!.type).toBe(DestinationType.BitcoinAddress);
+    expect(result.destinations[2]!.type).toBe(DestinationType.BitcoinAddress);
+    expect(result.hasUnverifiableInstruction).toBe(false);
+  });
+
+  test('qrParser_spParam_addsSilentPayment', () => {
+    const result = new QRParser('bitcoin:bc1qmerchant?sp=sp1qqexample');
+
+    expect(result.destinations[1]).toMatchObject({
+      value: 'sp1qqexample',
+      type: DestinationType.SilentPayment,
+    });
+    expect(result.hasUnverifiableInstruction).toBe(false);
+  });
+
+  test('qrParser_lnoAndPay_areUnverifiable', () => {
+    const lno = new QRParser('bitcoin:bc1qmerchant?lno=lno1qqexample');
+    expect(lno.destinations[1]).toMatchObject({ value: 'lno1qqexample', type: DestinationType.Bolt12 });
+    expect(lno.hasUnverifiableInstruction).toBe(true);
+
+    const pay = new QRParser('bitcoin:bc1qmerchant?pay=bitcoin:bc1qother');
+    expect(pay.hasUnverifiableInstruction).toBe(true);
+    expect(pay.destinations.map((d) => d.value)).toEqual(['bc1qmerchant']);
+  });
+
   test('qrParser_tabInsideLightningScheme_stillTypesBolt11', () => {
     const result = new QRParser('lightnin\tg:lnbc100n1ptest');
 
