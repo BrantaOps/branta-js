@@ -25,4 +25,4 @@ jobs:
             exit 1
           fi
       - name: Example QR codes against staging and production
-        run: node --experimental-vm-modules node_modules/jest/bin/jest.js test/v2/integration/exampleQrCodes.test.ts --watchman=false
+        run: npm run test:integration

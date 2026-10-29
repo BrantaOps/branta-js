@@ -19,9 +19,9 @@ const fetchLive: typeof fetch = (input, init) => {
 const makeService = (baseUrl: BrantaServerBaseUrl, privacy: PrivacyMode) =>
   new BrantaService({ baseUrl, defaultApiKey: apiKey, privacy }, { fetchImpl: fetchLive });
 
-// Live lookups of the published example QR codes. Pull-request CI sets
-// BRANTA_SKIP_INTEGRATION so the build does not depend on Guardrail being up.
-const describeLive = process.env.BRANTA_SKIP_INTEGRATION !== undefined ? describe.skip : describe;
+// Live lookups of the published example QR codes. Skipped unless
+// BRANTA_RUN_INTEGRATION=1 — local `npm test` and PR CI must not hit Guardrail.
+const describeLive = process.env.BRANTA_RUN_INTEGRATION === '1' ? describe : describe.skip;
 
 // Production — Loose
 describeLive('Production', () => {
