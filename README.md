@@ -59,7 +59,7 @@ Receive side (parent platforms — shared key), in addition to the platform rule
 
 Two flows are supported:
 
-- **Copy/paste**: call `getPayments` with the pasted text. On-chain addresses resolve only when you also pass the ZK secret. bolt11, Ark, and Silent Payments resolve from the pasted value alone: the SDK hash-ZKs them, and no secret is required.
+- **Copy/paste**: call `getPayments` with the pasted text. bolt11, Ark, and Silent Payments resolve from the value alone (hash-ZK). A pasted on-chain address cannot be looked up — pass the full URI to `getPaymentsByQrCode` so `branta_id` / `branta_secret` are present.
 - **QR scan**: call `getPaymentsByQrCode` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
 
 Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.

@@ -12,7 +12,7 @@ import {
 } from '../../extensions/brantaExtensions.js';
 import { GuidSecretGenerator } from '../classes/guidSecretGenerator.js';
 import { PaymentBuilder } from '../classes/paymentBuilder.js';
-import { QRParser } from '../classes/qrParser.js';
+import { detectPlainTextType, QRParser } from '../classes/qrParser.js';
 import { IAesEncryption } from '../interfaces/iAesEncryption.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { IBrantaService } from '../interfaces/iBrantaService.js';
@@ -180,7 +180,10 @@ export class BrantaService implements IBrantaService {
   ): Promise<PaymentsResult> {
     const hashZkType = getHashZkType(destinationValue);
 
-    if (hashZkType === undefined && destinationEncryptionKey === undefined) {
+    if (
+      hashZkType === undefined &&
+      (destinationEncryptionKey === undefined || detectPlainTextType(destinationValue) !== undefined)
+    ) {
       throw new BrantaPaymentException('Plain-text lookups are not permitted for this destination type.');
     }
 

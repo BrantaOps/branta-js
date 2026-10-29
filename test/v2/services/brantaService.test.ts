@@ -522,6 +522,7 @@ describe('BrantaService', () => {
   describe('getPayments', () => {
     test('getPayments_bitcoinAddress_throws', async () => {
       await expect(service.getPayments(BitcoinAddress)).rejects.toThrow(BrantaPaymentException);
+      await expect(service.getPayments(BitcoinAddress, Secret)).rejects.toThrow(BrantaPaymentException);
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
@@ -582,7 +583,7 @@ describe('BrantaService', () => {
     test('getPayments_nonZkDestination_doesNotDecrypt', async () => {
       clientMock.getPayments.mockResolvedValue([plainBitcoinPayment()]);
 
-      const { payments } = await service.getPayments(BitcoinAddress, Secret);
+      const { payments } = await service.getPayments(EncryptedBitcoinAddress, Secret);
 
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
       expect(aesMock.decrypt).not.toHaveBeenCalled();
@@ -716,7 +717,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = zkId;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
@@ -737,7 +737,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = zkId;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
@@ -757,7 +756,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedArkAddress, DestinationType.ArkAddress)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = zkId;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
@@ -777,7 +775,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = zkId;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
@@ -795,7 +792,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = payment.destinations[0]!.zkId!;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
@@ -872,7 +868,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = zkId;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
@@ -929,7 +924,6 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.isZk = true;
       responsePayment.destinations[0]!.zkId = zkId;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);

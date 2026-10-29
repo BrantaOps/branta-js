@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - A hash-ZK miss no longer retries the raw string.
+- A raw on-chain address is not looked up even when a secret is passed. `getPayments` treats recognizable non-hash-ZK destinations as plaintext.
 - `destinationToApi` sends `zk: true` when `isZk` is omitted.
 
 ## [[3.2.5](https://github.com/BrantaOps/branta-js/compare/v3.2.4...v3.2.5)] - 2026-10-29
