@@ -3,12 +3,10 @@ import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../classes/aesEncryption.js';
 import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
 import { DestinationType } from '../../enums/destinationType.js';
-import { PrivacyMode } from '../../enums/privacyMode.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../exceptions/brantaPaymentException.js';
 import {
   getBaseUrl,
   getHashZkType,
-  getPrivacy,
   toNormalizedHash,
   toUrlFragment,
 } from '../../extensions/brantaExtensions.js';
@@ -103,7 +101,7 @@ export class BrantaService implements IBrantaService {
     }
 
     const destination = parser.destination!;
-    if (getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict && getHashZkType(destination) === undefined) {
+    if (getHashZkType(destination) === undefined) {
       return { payments: [], verifyUrl: this.buildVerifyUrl(options, destination) };
     }
 
@@ -182,12 +180,8 @@ export class BrantaService implements IBrantaService {
   ): Promise<PaymentsResult> {
     const hashZkType = getHashZkType(destinationValue);
 
-    if (
-      hashZkType === undefined &&
-      destinationEncryptionKey === undefined &&
-      getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict
-    ) {
-      throw new BrantaPaymentException('PrivacyMode.Strict does not permit plain-text lookups for this destination type.');
+    if (hashZkType === undefined && destinationEncryptionKey === undefined) {
+      throw new BrantaPaymentException('Plain-text lookups are not permitted for this destination type.');
     }
 
     const normalizedDestination = hashZkType !== undefined ? destinationValue.toLowerCase() : destinationValue;
@@ -196,16 +190,7 @@ export class BrantaService implements IBrantaService {
       lookupValue = await this.aesEncryption.encrypt(normalizedDestination, await toNormalizedHash(normalizedDestination, this.crypto), true);
     }
 
-    let payments = await this.client.getPayments(lookupValue, options, signal);
-
-    if (
-      payments.length === 0 &&
-      hashZkType !== undefined &&
-      getPrivacy(this.defaultOptions, options) !== PrivacyMode.Strict
-    ) {
-      lookupValue = normalizedDestination;
-      payments = await this.client.getPayments(lookupValue, options, signal);
-    }
+    const payments = await this.client.getPayments(lookupValue, options, signal);
 
     const keys: Record<string, string> = {};
     for (const payment of payments) {
@@ -286,17 +271,8 @@ export class BrantaService implements IBrantaService {
     options?: BrantaClientOptions,
     signal?: AbortSignal,
   ): Promise<{ payment: Payment; secret: string; verifyUrl: string }> {
-    if (
-      getPrivacy(this.defaultOptions, options) === PrivacyMode.Strict &&
-      payment.destinations.some((d) => !d.isZk)
-    ) {
-      throw new BrantaPaymentException(
-        'PrivacyMode.Strict requires all destinations to be ZK; one or more destinations have isZk = false.',
-      );
-    }
-
     let dek: string | undefined;
-    if (payment.metadata != null && payment.destinations.some((d) => d.isZk)) {
+    if (payment.metadata != null && payment.destinations.length > 0) {
       dek = this.secretGenerator.generate();
       payment.metadata = await this.aesEncryption.encrypt(payment.metadata, dek, false);
     }
@@ -305,7 +281,10 @@ export class BrantaService implements IBrantaService {
     const encryptedToKey: Record<string, string> = {};
 
     for (const destination of payment.destinations) {
-      if (!destination.isZk) continue;
+      destination.isZk = true;
+      if (destination.zkId === undefined) {
+        destination.zkId = (this.crypto ?? globalThis.crypto).randomUUID();
+      }
 
       if (destination.type === DestinationType.BitcoinAddress) {
         destination.value = await this.aesEncryption.encrypt(destination.value, secret, this.secretGenerator.deterministicNonce);

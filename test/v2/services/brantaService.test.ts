@@ -4,7 +4,6 @@ import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../../src/classes/aesEncrypti
 import { BrantaClientOptions } from '../../../src/classes/brantaClientOptions.js';
 import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
 import { DestinationType } from '../../../src/enums/destinationType.js';
-import { PrivacyMode } from '../../../src/enums/privacyMode.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../../src/exceptions/brantaPaymentException.js';
 import { toNormalizedHash } from '../../../src/extensions/brantaExtensions.js';
 import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
@@ -73,20 +72,22 @@ const makeSecretMock = (): SecretMock => {
   return { generate, deterministicNonce: false };
 };
 
-const plainBitcoinPayment = (): Payment =>
-  new PaymentBuilder().addDestination(BitcoinAddress, DestinationType.BitcoinAddress).build();
+const plainBitcoinPayment = (): Payment => ({
+  destinations: [{ value: BitcoinAddress, type: DestinationType.BitcoinAddress, isZk: false }],
+});
 
 const zkBitcoinPayment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress).setZk().build();
+  new PaymentBuilder().addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress).build();
 
 const zkBolt11Payment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).setZk().build();
+  new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).build();
 
-const plainBolt11Payment = (): Payment =>
-  new PaymentBuilder().addDestination(Bolt11Invoice, DestinationType.Bolt11).build();
+const plainBolt11Payment = (): Payment => ({
+  destinations: [{ value: Bolt11Invoice, type: DestinationType.Bolt11, isZk: false }],
+});
 
 const zkArkPayment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedArkAddress, DestinationType.ArkAddress).setZk().build();
+  new PaymentBuilder().addDestination(EncryptedArkAddress, DestinationType.ArkAddress).build();
 
 describe('BrantaService', () => {
   let clientMock: ClientMock;
@@ -94,7 +95,6 @@ describe('BrantaService', () => {
   let secretMock: SecretMock;
   let defaultOptions: BrantaClientOptions;
   let service: BrantaService;
-  let strictService: BrantaService;
   let Bolt11Hash: string;
   let ArkHash: string;
 
@@ -110,20 +110,8 @@ describe('BrantaService', () => {
     defaultOptions = {
       baseUrl: BrantaServerBaseUrl.Localhost,
       defaultApiKey: 'test-api-key',
-      privacy: PrivacyMode.Loose,
     };
     service = new BrantaService(defaultOptions, {
-      client: clientMock,
-      aesEncryption: aesMock,
-      secretGenerator: secretMock,
-    });
-
-    const strictOptions: BrantaClientOptions = {
-      baseUrl: BrantaServerBaseUrl.Localhost,
-      defaultApiKey: 'test-api-key',
-      privacy: PrivacyMode.Strict,
-    };
-    strictService = new BrantaService(strictOptions, {
       client: clientMock,
       aesEncryption: aesMock,
       secretGenerator: secretMock,
@@ -146,16 +134,12 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
     });
 
-    test('getPaymentsByQrCode_plainBitcoinUri_usesAddress', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === BitcoinAddress) return [plainBitcoinPayment()];
-        return [];
-      });
+    test('getPaymentsByQrCode_plainBitcoinUri_returnsEmptyList', async () => {
+      const { payments, verifyUrl } = await service.getPaymentsByQrCode(`bitcoin:${BitcoinAddress}`);
 
-      const { payments } = await service.getPaymentsByQrCode(`bitcoin:${BitcoinAddress}`);
-
-      expect(clientMock.getPayments).toHaveBeenCalledWith(BitcoinAddress, undefined, undefined);
-      expect(payments).toHaveLength(1);
+      expect(payments).toHaveLength(0);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${BitcoinAddress}`);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('getPaymentsByQrCode_lightningBolt11Uri_usesEncryptedInvoiceLookup', async () => {
@@ -183,9 +167,7 @@ describe('BrantaService', () => {
     test('getPaymentsByQrCode_lightningBolt11Uri_leavesUnrelatedZkBitcoinDestinationEncrypted', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
-        .setZk()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
@@ -205,11 +187,8 @@ describe('BrantaService', () => {
     test('getPaymentsByQrCode_combinedZkQr_decryptsBothAddressAndInvoice', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
-        .setZk()
         .addDestination(EncryptedArkAddress, DestinationType.ArkAddress)
-        .setZk()
         .build();
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
@@ -247,7 +226,7 @@ describe('BrantaService', () => {
     const BaseAddressLower = '1a1zp1ep5qgefi2dmptftl5slmv7divfna';
 
     const zkBech32Payment = (): Payment =>
-      new PaymentBuilder().addDestination(EncryptedBech32Address, DestinationType.BitcoinAddress).setZk().build();
+      new PaymentBuilder().addDestination(EncryptedBech32Address, DestinationType.BitcoinAddress).build();
 
     test('getPaymentsByQrCode_zkBitcoinUri_swappedAddress_rejects', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
@@ -331,9 +310,7 @@ describe('BrantaService', () => {
     test('getPaymentsByQrCode_lightningQrWithZkParams_noPlainOnChainAddress_decryptsWithoutComparison', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
-        .setZk()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
@@ -360,11 +337,8 @@ describe('BrantaService', () => {
     test('getPaymentsByQrCode_combinedZkQr_swappedAddress_rejects', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
-        .setZk()
         .addDestination(EncryptedArkAddress, DestinationType.ArkAddress)
-        .setZk()
         .build();
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
@@ -506,7 +480,7 @@ describe('BrantaService', () => {
     });
 
     test('getPaymentsByQrCode_hashZkDestination_cryptoUnavailable_throwsCryptoUnavailableException', async () => {
-      const payment = new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).setZk().build();
+      const payment = new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).build();
 
       aesMock.decrypt.mockImplementation(async (encryptedValue, secret) => {
         if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) {
@@ -546,28 +520,24 @@ describe('BrantaService', () => {
   // ===== getPayments =====
 
   describe('getPayments', () => {
-    test('getPayments_shouldReturnPayments_whenClientSucceeds', async () => {
-      clientMock.getPayments.mockResolvedValue([plainBitcoinPayment()]);
-
-      const { payments } = await service.getPayments(BitcoinAddress);
-
-      expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
+    test('getPayments_bitcoinAddress_throws', async () => {
+      await expect(service.getPayments(BitcoinAddress)).rejects.toThrow(BrantaPaymentException);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('getPayments_shouldReturnEmptyList_whenClientReturnsEmpty', async () => {
       clientMock.getPayments.mockResolvedValue([]);
 
-      const { payments, verifyUrl } = await service.getPayments(BitcoinAddress);
+      const { payments, verifyUrl } = await service.getPayments(EncryptedBitcoinAddress, Secret);
 
       expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${BitcoinAddress}`);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}`);
     });
 
     test('getPayments_shouldForwardOptions_toClient', async () => {
-      clientMock.getPayments.mockResolvedValue([plainBitcoinPayment()]);
+      clientMock.getPayments.mockResolvedValue([zkBitcoinPayment()]);
 
-      await service.getPayments(BitcoinAddress, undefined, defaultOptions);
+      await service.getPayments(EncryptedBitcoinAddress, Secret, defaultOptions);
 
       expect(clientMock.getPayments).toHaveBeenCalledWith(expect.any(String), defaultOptions, undefined);
     });
@@ -576,7 +546,7 @@ describe('BrantaService', () => {
       const controller = new AbortController();
       clientMock.getPayments.mockResolvedValue([]);
 
-      await service.getPayments(BitcoinAddress, undefined, undefined, controller.signal);
+      await service.getPayments(EncryptedBitcoinAddress, Secret, undefined, controller.signal);
 
       expect(clientMock.getPayments).toHaveBeenCalledWith(expect.any(String), undefined, controller.signal);
     });
@@ -591,15 +561,9 @@ describe('BrantaService', () => {
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
     });
 
-    test('getPayments_zkBitcoinAddress_noKey_leavesEncrypted', async () => {
-      clientMock.getPayments.mockResolvedValue([zkBitcoinPayment()]);
-
-      const { payments } = await service.getPayments(EncryptedBitcoinAddress, undefined);
-
-      expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
-      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(true);
-      expect(aesMock.decrypt).not.toHaveBeenCalled();
+    test('getPayments_zkBitcoinAddress_noKey_throws', async () => {
+      await expect(service.getPayments(EncryptedBitcoinAddress, undefined)).rejects.toThrow(BrantaPaymentException);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('getPayments_zkBitcoinAddress_wrongKey_leavesEncrypted', async () => {
@@ -638,18 +602,9 @@ describe('BrantaService', () => {
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBolt11, Bolt11Hash);
     });
 
-    test('getPayments_zkBolt11_withNonBolt11DestinationValue_doesNotDecrypt', async () => {
-      const nonBolt11 = 'not-a-bolt11-value';
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === nonBolt11) return [zkBolt11Payment()];
-        return [];
-      });
-
-      const { payments } = await service.getPayments(nonBolt11);
-
-      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBolt11);
-      expect(clientMock.getPayments).toHaveBeenCalledWith(nonBolt11, undefined, undefined);
-      expect(aesMock.decrypt).not.toHaveBeenCalled();
+    test('getPayments_nonHashZkValue_withoutSecret_throws', async () => {
+      await expect(service.getPayments('not-a-bolt11-value')).rejects.toThrow(BrantaPaymentException);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('getPayments_nonZkBolt11_doesNotDecrypt', async () => {
@@ -665,33 +620,20 @@ describe('BrantaService', () => {
       expect(aesMock.decrypt).not.toHaveBeenCalled();
     });
 
-    test('getPayments_plainBitcoinAddress_setsVerifyUrl', async () => {
+    test('getPayments_plainBolt11_setsVerifyUrlToHashZkLookup', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === BitcoinAddress) return [plainBitcoinPayment()];
-        return [];
-      });
-
-      const { verifyUrl } = await service.getPayments(BitcoinAddress);
-
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${BitcoinAddress}`);
-    });
-
-    test('getPayments_plainBolt11_setsVerifyUrl', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBolt11) return [];
-        if (lookup === Bolt11Invoice) return [plainBolt11Payment()];
+        if (lookup === EncryptedBolt11) return [plainBolt11Payment()];
         return [];
       });
 
       const { verifyUrl } = await service.getPayments(Bolt11Invoice);
 
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${Bolt11Invoice}`);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
     });
 
     test('getPayments_zkBitcoinAddress_setsVerifyUrlWithKeyFragment', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -708,7 +650,6 @@ describe('BrantaService', () => {
     test('getPayments_zkBolt11_setsVerifyUrlWithKeyFragment', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -725,9 +666,7 @@ describe('BrantaService', () => {
     test('getPayments_zkBitcoinAndBolt11_setsVerifyUrlWithBothKeyFragments', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
-        .setZk()
         .build();
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
@@ -749,37 +688,28 @@ describe('BrantaService', () => {
       expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkIdBitcoin}=${Secret}`);
     });
 
-    test('getPayments_looseMode_bolt11NotFound_verifyUrlUsesPlainValue', async () => {
-      clientMock.getPayments.mockResolvedValue([]);
+    test('getPayments_bolt11NotFound_doesNotFallBackToPlainText', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBolt11) return [];
+        if (lookup === Bolt11Invoice) return [plainBolt11Payment()];
+        return [];
+      });
 
       const { payments, verifyUrl } = await service.getPayments(Bolt11Invoice);
 
       expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${Bolt11Invoice}`);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
-      expect(clientMock.getPayments).toHaveBeenCalledWith(Bolt11Invoice, undefined, undefined);
+      expect(clientMock.getPayments).not.toHaveBeenCalledWith(Bolt11Invoice, undefined, undefined);
     });
   });
 
   // ===== addPayment =====
 
   describe('addPayment', () => {
-    test('addPayment_plainDestination_doesNotEncrypt', async () => {
+    test('addPayment_encryptsBitcoinAddressWithSecret', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .build();
-
-      clientMock.postPayment.mockResolvedValue(plainBitcoinPayment());
-
-      await service.addPayment(payment);
-
-      expect(aesMock.encrypt).not.toHaveBeenCalled();
-    });
-
-    test('addPayment_zkBitcoinAddress_encryptsWithSecret', async () => {
-      const payment = new PaymentBuilder()
-        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -801,7 +731,6 @@ describe('BrantaService', () => {
     test('addPayment_zkBolt11_encryptsWithHash', async () => {
       const payment = new PaymentBuilder()
         .addDestination(Bolt11Invoice, DestinationType.Bolt11)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -822,7 +751,6 @@ describe('BrantaService', () => {
     test('addPayment_zkArkAddress_encryptsWithHash', async () => {
       const payment = new PaymentBuilder()
         .addDestination(ArkAddress, DestinationType.ArkAddress)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -843,7 +771,6 @@ describe('BrantaService', () => {
     test('addPayment_zkBitcoinAddress_setsVerifyUrlWithKeyFragment', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -863,7 +790,6 @@ describe('BrantaService', () => {
     test('addPayment_returnsGeneratedSecret', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
 
       const responsePayment = new PaymentBuilder()
@@ -882,7 +808,6 @@ describe('BrantaService', () => {
     test('addPayment_unsupportedZkType_throws', async () => {
       const payment = new PaymentBuilder()
         .addDestination('0xdeadbeef', DestinationType.TetherAddress)
-        .setZk()
         .build();
 
       await expect(service.addPayment(payment)).rejects.toThrow(BrantaPaymentException);
@@ -940,7 +865,6 @@ describe('BrantaService', () => {
     test('addPayment_withMetadataAndZkBitcoinDestination_encryptsMetadataWithDekAndSetsDek', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
       payment.metadata = Metadata;
       const zkId = payment.destinations[0]!.zkId!;
@@ -968,26 +892,37 @@ describe('BrantaService', () => {
       expect(aesMock.encrypt).toHaveBeenCalledWith(Dek, Secret, false);
     });
 
-    test('addPayment_withMetadataAndNoZkDestination_leavesMetadataPlain', async () => {
+    test('addPayment_withMetadata_encryptsMetadataWithDek', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
         .build();
       payment.metadata = Metadata;
+      const zkId = payment.destinations[0]!.zkId!;
 
-      clientMock.postPayment.mockResolvedValue(plainBitcoinPayment());
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      responsePayment.destinations[0]!.zkId = zkId;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+      secretMock.generate.mockReturnValueOnce(Dek).mockReturnValueOnce(Secret);
+      aesMock.encrypt.mockImplementation(async (value, key) => {
+        if (value === Metadata && key === Dek) return EncryptedMetadata;
+        if (value === BitcoinAddress && key === Secret) return EncryptedBitcoinAddress;
+        if (value === Dek && key === Secret) return EncryptedDek;
+        return '';
+      });
 
       await service.addPayment(payment);
 
-      expect(payment.metadata).toBe(Metadata);
-      expect(aesMock.encrypt).not.toHaveBeenCalled();
-      // generate() called once for the secret, never for a DEK
-      expect(secretMock.generate).toHaveBeenCalledTimes(1);
+      expect(payment.metadata).toBe(EncryptedMetadata);
+      expect(payment.destinations[0]!.encryptedDek).toBe(EncryptedDek);
+      expect(secretMock.generate).toHaveBeenCalledTimes(2);
     });
 
     test('addPayment_withZkDestinationAndNoMetadata_doesNotGenerateDek', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
         .build();
       const zkId = payment.destinations[0]!.zkId!;
 
@@ -1131,170 +1066,4 @@ describe('BrantaService', () => {
     });
   });
 
-  // ===== StrictMode =====
-
-  describe('StrictMode', () => {
-    test('getPayments_strictMode_bitcoinAddress_throws', async () => {
-      await expect(strictService.getPayments(BitcoinAddress)).rejects.toThrow(BrantaPaymentException);
-      expect(clientMock.getPayments).not.toHaveBeenCalled();
-    });
-
-    test('getPayments_strictMode_encryptedBitcoinAddress_withSecret_decryptsDestination', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
-        return [];
-      });
-
-      const { payments } = await strictService.getPayments(EncryptedBitcoinAddress, Secret);
-
-      expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
-      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(false);
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBitcoinAddress, undefined, undefined);
-      expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
-      expect(aesMock.encrypt).not.toHaveBeenCalled();
-    });
-
-    test('getPayments_strictMode_encryptedBitcoinAddress_withSecret_setsVerifyUrlWithKeyFragment', async () => {
-      const payment = new PaymentBuilder()
-        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
-        .build();
-      const zkId = payment.destinations[0]!.zkId!;
-
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBitcoinAddress) return [payment];
-        return [];
-      });
-
-      const { verifyUrl } = await strictService.getPayments(EncryptedBitcoinAddress, Secret);
-
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkId}=${Secret}`);
-    });
-
-    test('getPayments_strictMode_encryptedBitcoinAddress_wrongKey_leavesEncrypted', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
-        return [];
-      });
-      aesMock.decrypt.mockImplementationOnce(async () => {
-        throw new Error('Decryption failed: auth tag mismatch');
-      });
-
-      const { payments } = await strictService.getPayments(EncryptedBitcoinAddress, 'wrong-key');
-
-      expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
-      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(true);
-    });
-
-    test('getPayments_strictMode_bolt11Invoice_doesNotThrow_usesEncryptedLookup', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBolt11) return [zkBolt11Payment()];
-        return [];
-      });
-
-      await strictService.getPayments(Bolt11Invoice);
-
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
-    });
-
-    test('getPayments_strictMode_arkAddress_doesNotThrow_usesEncryptedLookup', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedArkAddress) return [zkArkPayment()];
-        return [];
-      });
-
-      await strictService.getPayments(ArkAddress);
-
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedArkAddress, undefined, undefined);
-    });
-
-    test('getPayments_strictMode_bolt11_noFallbackToPlainText', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBolt11) return [];
-        if (lookup === Bolt11Invoice) return [plainBolt11Payment()];
-        return [];
-      });
-
-      const { payments, verifyUrl } = await strictService.getPayments(Bolt11Invoice);
-
-      expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
-      expect(clientMock.getPayments).not.toHaveBeenCalledWith(Bolt11Invoice, undefined, undefined);
-    });
-
-    test('getPaymentsByQrCode_strictMode_plainBitcoinUri_returnsEmptyList', async () => {
-      const { payments, verifyUrl } = await strictService.getPaymentsByQrCode(`bitcoin:${BitcoinAddress}`);
-
-      expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${BitcoinAddress}`);
-      expect(clientMock.getPayments).not.toHaveBeenCalled();
-    });
-
-    test('getPaymentsByQrCode_strictMode_zkBitcoinUri_succeeds', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBitcoinAddress) return [zkBitcoinPayment()];
-        return [];
-      });
-
-      const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const { payments } = await strictService.getPaymentsByQrCode(qrText);
-
-      expect(payments).toHaveLength(1);
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBitcoinAddress, undefined, undefined);
-    });
-
-    test('getPaymentsByQrCode_strictMode_lightningBolt11Uri_succeeds', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBolt11) return [plainBolt11Payment()];
-        return [];
-      });
-
-      await strictService.getPaymentsByQrCode(`lightning:${Bolt11Invoice}`);
-
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
-    });
-
-    test('addPayment_strictMode_plainDestination_throws', async () => {
-      const payment = new PaymentBuilder()
-        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .build();
-
-      await expect(strictService.addPayment(payment)).rejects.toThrow(BrantaPaymentException);
-      expect(clientMock.postPayment).not.toHaveBeenCalled();
-    });
-
-    test('addPayment_strictMode_allZkDestinations_succeeds', async () => {
-      const payment = new PaymentBuilder()
-        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
-        .build();
-      const zkId = payment.destinations[0]!.zkId!;
-
-      const responsePayment = new PaymentBuilder()
-        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
-        .build();
-      responsePayment.destinations[0]!.isZk = true;
-      responsePayment.destinations[0]!.zkId = zkId;
-
-      clientMock.postPayment.mockResolvedValue(responsePayment);
-
-      await strictService.addPayment(payment);
-
-      expect(clientMock.postPayment).toHaveBeenCalledTimes(1);
-    });
-
-    test('addPayment_strictMode_mixedDestinations_throws', async () => {
-      const payment = new PaymentBuilder()
-        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-        .setZk()
-        .addDestination(Bolt11Invoice, DestinationType.Bolt11)
-        .build();
-
-      await expect(strictService.addPayment(payment)).rejects.toThrow(BrantaPaymentException);
-      expect(clientMock.postPayment).not.toHaveBeenCalled();
-    });
-  });
 });

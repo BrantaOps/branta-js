@@ -2,7 +2,6 @@ import { describe, expect, jest, test } from '@jest/globals';
 
 import { BrantaClientOptions } from '../../../src/classes/brantaClientOptions.js';
 import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
-import { PrivacyMode } from '../../../src/enums/privacyMode.js';
 import { BrantaPaymentException } from '../../../src/exceptions/brantaPaymentException.js';
 import { BrantaClient } from '../../../src/v2/services/brantaClient.js';
 
@@ -12,7 +11,6 @@ const OtherOrigin = 'https://attacker.example';
 
 const options: BrantaClientOptions = {
   baseUrl: BrantaServerBaseUrl.Localhost,
-  privacy: PrivacyMode.Loose,
 };
 
 const destinations = [{ value: 'test-destination' }];

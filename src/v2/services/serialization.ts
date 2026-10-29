@@ -5,7 +5,7 @@ export const destinationToApi = (destination: Destination): Record<string, unkno
   const result: Record<string, unknown> = {
     value: destination.value,
     primary: destination.isPrimary ?? false,
-    zk: destination.isZk ?? false,
+    zk: destination.isZk ?? true,
   };
   if (destination.type !== undefined) result['type'] = destination.type;
   if (destination.zkId !== undefined) result['zk_id'] = destination.zkId;

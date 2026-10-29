@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-10-29
+
+### Removed
+- **BREAKING:** `PrivacyMode` and the `privacy` client option. The SDK is zero-knowledge only: on-chain lookups need `branta_id` / `branta_secret`, hash-ZK types (bolt11, Ark, silent payments) still resolve from the value, and `addPayment` encrypts every destination.
+- **BREAKING:** `PaymentBuilder.setZk()`. `addDestination` marks each destination ZK.
+
+### Changed
+- A hash-ZK miss no longer retries the raw string.
+- `destinationToApi` sends `zk: true` when `isZk` is omitted.
+
 ## [[3.2.5](https://github.com/BrantaOps/branta-js/compare/v3.2.4...v3.2.5)] - 2026-10-29
 
 ### Fixed

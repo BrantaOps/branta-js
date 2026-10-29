@@ -50,10 +50,9 @@ describe('PaymentBuilder', () => {
     expect(parsed['type']).toBeUndefined();
   });
 
-  test('setZk_marksLastDestinationAsZkAndAssignsZkId', () => {
+  test('addDestination_marksDestinationAsZkAndAssignsZkId', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-      .setZk()
       .build();
 
     expect(payment.destinations[0]!.isZk).toBe(true);
@@ -61,15 +60,16 @@ describe('PaymentBuilder', () => {
     expect(payment.destinations[0]!.zkId!.length).toBeGreaterThan(0);
   });
 
-  test('setZk_onlyAppliesToLastDestination', () => {
+  test('addDestination_marksEveryDestinationAsZk', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
       .addDestination(Bolt11Invoice, DestinationType.Bolt11)
-      .setZk()
       .build();
 
-    expect(payment.destinations[0]!.isZk).toBe(false);
+    expect(payment.destinations[0]!.isZk).toBe(true);
     expect(payment.destinations[1]!.isZk).toBe(true);
+    expect(payment.destinations[0]!.zkId).toBeDefined();
+    expect(payment.destinations[1]!.zkId).toBeDefined();
   });
 
   test('setDescription_setsDescription', () => {

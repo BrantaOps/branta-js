@@ -2,7 +2,6 @@ import type { BrantaCryptoProvider } from '../index.js';
 import { BrantaClientOptions } from '../classes/brantaClientOptions.js';
 import { BrantaServerBaseUrl, BrantaServerBaseUrls } from '../enums/brantaServerBaseUrl.js';
 import { DestinationType } from '../enums/destinationType.js';
-import { PrivacyMode } from '../enums/privacyMode.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -28,14 +27,6 @@ export function getBaseUrl(defaultOptions: BrantaClientOptions | undefined, over
   const baseUrl = overrideOptions?.baseUrl ?? defaultOptions?.baseUrl;
   if (!baseUrl) throw new Error('Branta: BaseUrl is a required option.');
   return getUrl(baseUrl);
-}
-
-export function getPrivacy(
-  defaultOptions: BrantaClientOptions | undefined,
-  overrideOptions: BrantaClientOptions | undefined,
-  fallback: PrivacyMode = PrivacyMode.Strict,
-): PrivacyMode {
-  return overrideOptions?.privacy ?? defaultOptions?.privacy ?? fallback;
 }
 
 export function getApiKey(defaultOptions: BrantaClientOptions | undefined, overrideOptions: BrantaClientOptions | undefined): string | undefined {

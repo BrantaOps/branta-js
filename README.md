@@ -28,7 +28,6 @@ If they are on the receive side, ask one follow-up:
 **4. Apply these rules:**
 
 General (all types):
-- Always use `privacy: 'strict'`. Never switch to `'loose'` unless there is no QR scanner and ZK is impossible.
 - Never instantiate `BrantaClient` directly — always use `BrantaService`.
 - Never show an error or "not verified" message when a lookup returns empty or throws. An empty result means the destination is unknown to Branta, not that it is malicious. Show nothing.
 - For `baseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
@@ -43,7 +42,7 @@ Send side (wallets):
 - Optionally display `payment.parentPlatform?.logoUrl` / `payment.parentPlatform?.logoLightUrl` as a small secondary badge (e.g. corner icon). This is not required.
 
 Receive side (platforms):
-- Always call `.setZk()` on the `PaymentBuilder` before calling `addPayment`. Plain-text destinations are rejected in `strict` mode.
+- `addDestination` encrypts every destination. Types without a ZK scheme (for example Tether) are rejected.
 - Store the `secret` returned by `addPayment` alongside the invoice — it is required to reconstruct the verify URL for the wallet.
 
 Receive side (parent platforms — per-client keys), in addition to the platform rules:
@@ -58,9 +57,9 @@ Receive side (parent platforms — shared key), in addition to the platform rule
 
 ## For Wallets
 
-Wallets should use `strict` privacy mode. Two flows are supported:
+Two flows are supported:
 
-- **Copy/paste**: call `getPayments` with the pasted text. On-chain addresses resolve in strict mode only when you also pass the ZK secret. bolt11, Ark, and Silent Payments resolve from the pasted value alone: the SDK hash-ZKs them, and no secret is required.
+- **Copy/paste**: call `getPayments` with the pasted text. On-chain addresses resolve only when you also pass the ZK secret. bolt11, Ark, and Silent Payments resolve from the pasted value alone: the SDK hash-ZKs them, and no secret is required.
 - **QR scan**: call `getPaymentsByQrCode` with the raw QR text. This handles both on-chain (when the QR includes `branta_id` / `branta_secret`) and lightning destinations.
 
 Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
@@ -71,7 +70,6 @@ import { BrantaService } from "@branta-ops/branta/v2";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
-  privacy: 'strict',
 });
 
 async function lookup(input: string, isQrCode: boolean) {
@@ -94,7 +92,7 @@ async function lookup(input: string, isQrCode: boolean) {
 
 ## For Platforms
 
-Platforms post payments to Branta so wallets can verify them. Use `strict` privacy mode and mark each destination ZK via `setZk()` on the `PaymentBuilder`.
+Platforms post payments to Branta so wallets can verify them. Every destination is encrypted.
 
 ```ts
 import { BrantaServerBaseUrl } from "@branta-ops/branta";
@@ -103,13 +101,11 @@ import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<default-api-key>",
-  privacy: 'strict',
 });
 
 const payment = new PaymentBuilder()
   .setDescription("Testing description")
   .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
-  .setZk()
   .setTtl(600)
   .build();
 
@@ -133,13 +129,11 @@ import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   defaultApiKey: "<shared-api-key>",
-  privacy: 'strict',
 });
 
 const payment = new PaymentBuilder()
   .setDescription("Testing description")
   .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
-  .setZk()
   .setChildPlatform("ChildBrand", "https://example.com/logo.png")
   .setTtl(600)
   .build();
@@ -161,13 +155,11 @@ import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
   hmacSecret: "<hmac-secret>",
-  privacy: 'strict',
 });
 
 const payment = new PaymentBuilder()
   .setDescription("Testing description")
   .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
-  .setZk()
   .setTtl(600)
   .build();
 
@@ -201,7 +193,7 @@ import { BrantaService } from '@branta-ops/branta/v2';
 
 const crypto = new Crypto();
 const service = new BrantaService(
-  { baseUrl: BrantaServerBaseUrl.Production, privacy: 'strict' },
+  { baseUrl: BrantaServerBaseUrl.Production },
   { crypto },
 );
 
@@ -209,7 +201,6 @@ const service = new BrantaService(
 // shares the same crypto instance:
 const payment = service.createPaymentBuilder()
   .addDestination('...', 'bitcoin_address')
-  .setZk()
   .build();
 ```
 
@@ -229,7 +220,7 @@ import { gcm } from '@noble/ciphers/aes.js';
 import { randomBytes } from '@noble/hashes/utils.js';
 
 const service = new BrantaService(
-  { baseUrl: BrantaServerBaseUrl.Production, privacy: 'strict' },
+  { baseUrl: BrantaServerBaseUrl.Production },
   { crypto: createNobleCryptoProvider({ sha256, hmac, gcm, randomBytes }) },
 );
 ```
