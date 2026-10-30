@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-10-29
+
+### Removed
+- **BREAKING:** `PrivacyMode` and the `privacy` client option. The SDK encrypts every destination: on-chain lookups need `branta_id` / `branta_secret`; bolt11, Ark, and silent payments still resolve from the value.
+- **BREAKING:** `PaymentBuilder.setZk()` and `Destination.isZk`.
+- **BREAKING:** `getPayments` and `getPaymentsByQrCode`. Wallets call `verify(input)` for both QR scan and clipboard paste.
+- **BREAKING:** The `@branta-ops/branta/v2` subpath. Import from `@branta-ops/branta`. `BrantaClient`, `QRParser`, `AesEncryption`, `AesEncryptionService`, `GuidSecretGenerator`, and the `IBranta*` / `IAesEncryption` / `ISecretGenerator` types are no longer exported. `getDefaultValue` is gone.
+- **BREAKING:** `verify()` returns `{ status, verifyUrl }` with `status` of `match`, `unknown`, or `tampered`. A swapped address is `tampered`, not a thrown exception. `payments` is present only on `match`. `PaymentsResult` and `BrantaPaymentExceptionReason.Tampered` are gone.
+- **BREAKING:** `DestinationType.Bolt12`, `LnUrl`, `TetherAddress`, and `LnAddress`. `DestinationType` is the set of types `addPayment` accepts: bitcoin, bolt11, Ark, and silent payments.
+- **BREAKING:** `BrantaClientOptions` is `BrantaApiOptions`. `baseUrl` is `environment`; `BrantaServerBaseUrl` / `BrantaServerBaseUrls` are `BrantaEnvironment` / `BrantaEnvironmentUrls`; `defaultApiKey` is `apiKey`.
+- **BREAKING:** `QRParseException`. Nothing threw it.
+- **BREAKING:** `Payment.btcPayServerPluginVersion`.
+- **BREAKING:** `Destination.zkId` is `Destination.id`. Guardrail still receives `zk_id`.
+- **BREAKING:** `new BrantaService(apiOptions, { crypto })` is `new BrantaService({ ...apiOptions, crypto })`. `BrantaServiceOptions` is the constructor argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). Per-call overrides stay `BrantaApiOptions`.
+
+### Fixed
+- `verify()` of a `bitcoin:` URI with `branta_id` / `branta_secret` and no payable destination is `unknown`. Finding the record is not a match.
+
+### Changed
+- `prepublishOnly` runs `clean` before `build`, so leftover files from deleted source cannot ship in the tarball.
+- README is the JavaScript (install, constructor, samples, crypto). Product rules live in the [developer docs](https://developer.branta.pro).
+- Source layout no longer uses a `v2` directory. Guardrail HTTP paths remain `/v2/...`.
+- A bolt11 / Ark / silent-payment miss no longer retries the raw string.
+- A raw on-chain address is not looked up. `verify` returns empty for those destinations, including testnet `tb1` / `bcrt1`.
+- `addPayment` infers `bitcoin_address` from the value when `type` is omitted, so `addDestination(value)` still encrypts.
+- `destinationToApi` always sends `zk: true` (Guardrail wire field).
+
 ## [[3.2.5](https://github.com/BrantaOps/branta-js/compare/v3.2.4...v3.2.5)] - 2026-10-29
 
 ### Fixed
@@ -18,7 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [[3.2.3](https://github.com/BrantaOps/branta-js/compare/v3.2.2...v3.2.3)] - 2026-10-28
 
 ### Added
-- Recognize signet and regtest Ark addresses (`tark1`) as `ark_address`, alongside mainnet `ark1`. Strict-mode hash-ZK lookup and registration treat them the same way as `ark1`.
+- Recognize signet and regtest Ark addresses (`tark1`) as `ark_address`, alongside mainnet `ark1`. Lookup and registration treat them the same way as `ark1`.
 
 ## [[3.2.2](https://github.com/BrantaOps/branta-js/compare/v3.2.1...v3.2.2)] - 2026-09-30
 

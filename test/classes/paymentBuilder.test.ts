@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { DestinationType } from '../../../src/enums/destinationType.js';
-import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
-import { destinationToApi, paymentToApi } from '../../../src/v2/services/serialization.js';
+import { DestinationType } from '../../src/enums/destinationType.js';
+import { PaymentBuilder } from '../../src/classes/paymentBuilder.js';
+import { destinationFromApi, destinationToApi, paymentToApi } from '../../src/services/serialization.js';
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const Bolt11Invoice = 'lnbc100n1ptest';
@@ -27,11 +27,8 @@ describe('PaymentBuilder', () => {
   test.each([
     [DestinationType.BitcoinAddress, 'bitcoin_address'],
     [DestinationType.Bolt11, 'bolt11'],
-    [DestinationType.Bolt12, 'bolt12'],
-    [DestinationType.LnUrl, 'ln_url'],
-    [DestinationType.TetherAddress, 'tether_address'],
-    [DestinationType.LnAddress, 'ln_address'],
     [DestinationType.ArkAddress, 'ark_address'],
+    [DestinationType.SilentPayment, 'silent_payment'],
   ])('destinationType_serializesToCorrectJsonString (%s)', (type, expected) => {
     const destination = { value: 'addr', type } as const;
     const apiObject = destinationToApi(destination);
@@ -39,6 +36,12 @@ describe('PaymentBuilder', () => {
     const parsed = JSON.parse(json) as Record<string, unknown>;
 
     expect(parsed['type']).toBe(expected);
+  });
+
+  test('destinationFromApi_unknownType_isOmitted', () => {
+    const destination = destinationFromApi({ value: 'addr', type: 'not_a_destination_type', zk: true });
+
+    expect(destination.type).toBeUndefined();
   });
 
   test('destinationType_undefinedOmittedFromJson', () => {
@@ -50,26 +53,31 @@ describe('PaymentBuilder', () => {
     expect(parsed['type']).toBeUndefined();
   });
 
-  test('setZk_marksLastDestinationAsZkAndAssignsZkId', () => {
+  test('addDestination_assignsId', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
-      .setZk()
       .build();
 
-    expect(payment.destinations[0]!.isZk).toBe(true);
-    expect(payment.destinations[0]!.zkId).toBeDefined();
-    expect(payment.destinations[0]!.zkId!.length).toBeGreaterThan(0);
+    expect(payment.destinations[0]!.id).toBeDefined();
+    expect(payment.destinations[0]!.id!.length).toBeGreaterThan(0);
   });
 
-  test('setZk_onlyAppliesToLastDestination', () => {
+  test('addDestination_assignsIdOnEveryDestination', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
       .addDestination(Bolt11Invoice, DestinationType.Bolt11)
-      .setZk()
       .build();
 
-    expect(payment.destinations[0]!.isZk).toBe(false);
-    expect(payment.destinations[1]!.isZk).toBe(true);
+    expect(payment.destinations[0]!.id).toBeDefined();
+    expect(payment.destinations[1]!.id).toBeDefined();
+  });
+
+  test('destinationToApi_alwaysSendsZkTrue', () => {
+    const payment = new PaymentBuilder().addDestination(BitcoinAddress).build();
+    const apiObject = destinationToApi(payment.destinations[0]!);
+
+    expect(apiObject['zk']).toBe(true);
+    expect(apiObject['zk_id']).toBe(payment.destinations[0]!.id);
   });
 
   test('setDescription_setsDescription', () => {

@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { BrantaServerBaseUrl } from '../../src/enums/brantaServerBaseUrl.js';
+import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
 import {
-  getHashZkType,
+  getDerivedKeyType,
   getUrl,
   isArk,
   isBolt11,
@@ -14,15 +14,15 @@ import { DestinationType } from '../../src/enums/destinationType.js';
 
 describe('BrantaExtensions', () => {
   test('getUrl_localhost', () => {
-    expect(getUrl(BrantaServerBaseUrl.Localhost)).toBe('http://localhost:3000');
+    expect(getUrl(BrantaEnvironment.Localhost)).toBe('http://localhost:3000');
   });
 
   test('getUrl_production', () => {
-    expect(getUrl(BrantaServerBaseUrl.Production)).toBe('https://guardrail.branta.pro');
+    expect(getUrl(BrantaEnvironment.Production)).toBe('https://guardrail.branta.pro');
   });
 
   test('getUrl_staging', () => {
-    expect(getUrl(BrantaServerBaseUrl.Staging)).toBe('https://staging.guardrail.branta.pro');
+    expect(getUrl(BrantaEnvironment.Staging)).toBe('https://staging.guardrail.branta.pro');
   });
 
   // isBolt11
@@ -86,23 +86,23 @@ describe('BrantaExtensions', () => {
     expect(isSilentPayment('ark1qqjqtest')).toBe(false);
   });
 
-  // getHashZkType
+  // getDerivedKeyType
 
-  test('getHashZkType_returnsBolt11_forBolt11Invoice', () => {
-    expect(getHashZkType('lnbc100n1ptest')).toBe(DestinationType.Bolt11);
+  test('getDerivedKeyType_returnsBolt11_forBolt11Invoice', () => {
+    expect(getDerivedKeyType('lnbc100n1ptest')).toBe(DestinationType.Bolt11);
   });
 
-  test('getHashZkType_returnsArkAddress_forArkAddress', () => {
-    expect(getHashZkType('ark1qqjqtest')).toBe(DestinationType.ArkAddress);
-    expect(getHashZkType('tark1qqjqtest')).toBe(DestinationType.ArkAddress);
+  test('getDerivedKeyType_returnsArkAddress_forArkAddress', () => {
+    expect(getDerivedKeyType('ark1qqjqtest')).toBe(DestinationType.ArkAddress);
+    expect(getDerivedKeyType('tark1qqjqtest')).toBe(DestinationType.ArkAddress);
   });
 
-  test('getHashZkType_returnsSilentPayment_forSilentPaymentAddress', () => {
-    expect(getHashZkType('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(DestinationType.SilentPayment);
+  test('getDerivedKeyType_returnsSilentPayment_forSilentPaymentAddress', () => {
+    expect(getDerivedKeyType('sp1qqwl5p9jhz0000h5zkvlf9gfqv9dl9qjp5ggq5x3fw')).toBe(DestinationType.SilentPayment);
   });
 
-  test('getHashZkType_returnsUndefined_forBitcoinAddress', () => {
-    expect(getHashZkType('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toBeUndefined();
+  test('getDerivedKeyType_returnsUndefined_forBitcoinAddress', () => {
+    expect(getDerivedKeyType('1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa')).toBeUndefined();
   });
 
   // toNormalizedHash
@@ -121,7 +121,7 @@ describe('BrantaExtensions', () => {
   // toUrlFragment
 
   test('toUrlFragment_formatsPairsWithKPrefix', () => {
-    expect(toUrlFragment({ zkId1: 'secret1' })).toBe('#k-zkId1=secret1');
+    expect(toUrlFragment({ id1: 'secret1' })).toBe('#k-id1=secret1');
   });
 
   test('toUrlFragment_joinsMultiplePairsWithAmpersand', () => {

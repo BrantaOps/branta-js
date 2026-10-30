@@ -1,12 +1,12 @@
-export const BrantaServerBaseUrl = {
+export const BrantaEnvironment = {
   Staging: 'Staging',
   Production: 'Production',
   Localhost: 'Localhost',
 } as const;
 
-export type BrantaServerBaseUrl = (typeof BrantaServerBaseUrl)[keyof typeof BrantaServerBaseUrl];
+export type BrantaEnvironment = (typeof BrantaEnvironment)[keyof typeof BrantaEnvironment];
 
-export const BrantaServerBaseUrls: Record<BrantaServerBaseUrl, string> = {
+export const BrantaEnvironmentUrls: Record<BrantaEnvironment, string> = {
   Staging: 'https://staging.guardrail.branta.pro',
   Production: 'https://guardrail.branta.pro',
   Localhost: 'http://localhost:3000',

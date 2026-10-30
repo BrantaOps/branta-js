@@ -5,6 +5,7 @@ export interface Payment {
   description?: string;
   destinations: Destination[];
   createdDate?: string;
+  /** Time to live in seconds. */
   ttl?: number;
   metadata?: string;
   platform?: string;
@@ -12,12 +13,5 @@ export interface Payment {
   platformLogoLightUrl?: string;
   parentPlatform?: Platform;
   childPlatform?: Platform;
-  btcPayServerPluginVersion?: string;
   isMetadataDecrypted?: boolean;
-}
-
-export function getDefaultValue(payment: Payment): string {
-  const value = payment.destinations?.[0]?.value;
-  if (!value) throw new Error('Payment has no destinations.');
-  return value;
 }

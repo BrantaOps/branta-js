@@ -1,7 +1,7 @@
-import type { BrantaCryptoProvider } from '../../index.js';
-import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
-import { BrantaPaymentException } from '../../exceptions/brantaPaymentException.js';
-import { getApiKey, getBaseUrl, getHmacSecret } from '../../extensions/brantaExtensions.js';
+import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
+import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
+import { BrantaPaymentException } from '../exceptions/brantaPaymentException.js';
+import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
 import { paymentFromApi, paymentToApi } from './serialization.js';
@@ -30,17 +30,17 @@ const hmacSha256Hex = async (keyBytes: Bytes, messageBytes: Bytes, crypto?: Bran
 type FetchImpl = typeof fetch;
 
 export class BrantaClient implements IBrantaClient {
-  private readonly defaultOptions?: BrantaClientOptions;
+  private readonly defaultOptions?: BrantaApiOptions;
   private readonly fetchImpl: FetchImpl;
   private readonly crypto?: BrantaCryptoProvider;
 
-  constructor(defaultOptions?: BrantaClientOptions, fetchImpl?: FetchImpl, crypto?: BrantaCryptoProvider) {
+  constructor(defaultOptions?: BrantaApiOptions, fetchImpl?: FetchImpl, crypto?: BrantaCryptoProvider) {
     if (defaultOptions !== undefined) this.defaultOptions = defaultOptions;
     this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.crypto = crypto;
   }
 
-  async getPayments(destinationValue: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<Payment[]> {
+  async getPayments(destinationValue: string, options?: BrantaApiOptions, signal?: AbortSignal): Promise<Payment[]> {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, false);
 
@@ -64,7 +64,7 @@ export class BrantaClient implements IBrantaClient {
     return payments;
   }
 
-  async postPayment(payment: Payment, options?: BrantaClientOptions, signal?: AbortSignal): Promise<Payment | undefined> {
+  async postPayment(payment: Payment, options?: BrantaApiOptions, signal?: AbortSignal): Promise<Payment | undefined> {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, true);
     headers['Content-Type'] = 'application/json';
@@ -91,7 +91,7 @@ export class BrantaClient implements IBrantaClient {
     return paymentFromApi(parsed);
   }
 
-  async isApiKeyValid(options?: BrantaClientOptions, signal?: AbortSignal): Promise<boolean> {
+  async isApiKeyValid(options?: BrantaApiOptions, signal?: AbortSignal): Promise<boolean> {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, true);
 
@@ -104,11 +104,11 @@ export class BrantaClient implements IBrantaClient {
     return response.ok;
   }
 
-  private resolveBaseUrl(options: BrantaClientOptions | undefined): string {
+  private resolveBaseUrl(options: BrantaApiOptions | undefined): string {
     return getBaseUrl(this.defaultOptions, options);
   }
 
-  private buildHeaders(options: BrantaClientOptions | undefined, requireApiKey: boolean): Record<string, string> {
+  private buildHeaders(options: BrantaApiOptions | undefined, requireApiKey: boolean): Record<string, string> {
     const headers: Record<string, string> = {};
     if (requireApiKey) {
       const apiKey = getApiKey(this.defaultOptions, options);
@@ -118,7 +118,7 @@ export class BrantaClient implements IBrantaClient {
     return headers;
   }
 
-  private async applyHmacHeaders(headers: Record<string, string>, baseUrl: string, json: string, options: BrantaClientOptions | undefined): Promise<void> {
+  private async applyHmacHeaders(headers: Record<string, string>, baseUrl: string, json: string, options: BrantaApiOptions | undefined): Promise<void> {
     const hmacSecret = getHmacSecret(this.defaultOptions, options);
     if (hmacSecret === undefined) return;
 
@@ -146,10 +146,10 @@ export class BrantaClient implements IBrantaClient {
       try {
         logoOrigin = new URL(logoUrl).origin;
       } catch {
-        throw new BrantaPaymentException(`${fieldName} domain does not match the configured baseUrl domain`);
+        throw new BrantaPaymentException(`${fieldName} domain does not match the configured API domain`);
       }
       if (logoOrigin !== baseOrigin) {
-        throw new BrantaPaymentException(`${fieldName} domain does not match the configured baseUrl domain`);
+        throw new BrantaPaymentException(`${fieldName} domain does not match the configured API domain`);
       }
     };
 

@@ -1,4 +1,4 @@
-import type { BrantaCryptoProvider } from '../index.js';
+import type { BrantaCryptoProvider } from './brantaCryptoProvider.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
