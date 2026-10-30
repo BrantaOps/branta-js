@@ -2,7 +2,7 @@
 
 JavaScript SDK for [Branta](https://developer.branta.pro). ESM only.
 
-Send (wallets) call `verify()`. Receive (platforms) call `addPayment()`. What to show on `match`, `unknown`, and `tampered` — and how parent platforms work — is in the [developer docs](https://developer.branta.pro). This README is the JavaScript.
+Use `verify()` on send and `addPayment()` on receive. Status handling and parent platforms are in the [developer docs](https://developer.branta.pro).
 
 ## Install
 
