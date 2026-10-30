@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { DestinationType } from '../../../src/enums/destinationType.js';
-import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
-import { destinationFromApi, destinationToApi, paymentToApi } from '../../../src/v2/services/serialization.js';
+import { DestinationType } from '../../src/enums/destinationType.js';
+import { PaymentBuilder } from '../../src/classes/paymentBuilder.js';
+import { destinationFromApi, destinationToApi, paymentToApi } from '../../src/services/serialization.js';
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const Bolt11Invoice = 'lnbc100n1ptest';

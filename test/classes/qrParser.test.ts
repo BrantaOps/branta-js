@@ -1,7 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { DestinationType } from '../../../src/enums/destinationType.js';
-import { QRParser } from '../../../src/v2/classes/qrParser.js';
+import { DestinationType } from '../../src/enums/destinationType.js';
+import { QRParser } from '../../src/classes/qrParser.js';
 
 describe('QRParser', () => {
   test('qrParser_bitcoinUri_setsBitcoinAddressTypeAndDestination', () => {

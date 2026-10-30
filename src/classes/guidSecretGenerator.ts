@@ -1,4 +1,4 @@
-import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
+import type { BrantaCryptoProvider } from './brantaCryptoProvider.js';
 import { ISecretGenerator } from '../interfaces/iSecretGenerator.js';
 
 export class GuidSecretGenerator implements ISecretGenerator {

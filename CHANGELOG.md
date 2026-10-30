@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `verify()` of a `bitcoin:` URI with `branta_id` / `branta_secret` and no payable destination is `unknown`. Finding the record is not a match.
 
 ### Changed
+- Source layout no longer uses a `v2` directory. Guardrail HTTP paths remain `/v2/...`.
 - A bolt11 / Ark / silent-payment miss no longer retries the raw string.
 - A raw on-chain address is not looked up. `verify` returns empty for those destinations, including testnet `tb1` / `bcrt1`.
 - `addPayment` infers `bitcoin_address` from the value when `type` is omitted, so `addDestination(value)` still encrypts.

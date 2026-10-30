@@ -1,4 +1,4 @@
-import { BrantaApiOptions } from '../../classes/brantaApiOptions.js';
+import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { Payment } from '../models/payment.js';
 
 export interface IBrantaClient {

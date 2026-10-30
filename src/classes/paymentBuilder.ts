@@ -1,5 +1,5 @@
-import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
-import { DestinationType } from '../../enums/destinationType.js';
+import type { BrantaCryptoProvider } from './brantaCryptoProvider.js';
+import { DestinationType } from '../enums/destinationType.js';
 import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
 

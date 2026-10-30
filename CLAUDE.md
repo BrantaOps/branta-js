@@ -8,8 +8,8 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 
 ## Package layout
 - `src/index.ts` — the public package entry (`BrantaService`, `PaymentBuilder`, `DestinationType`, options, exceptions, `createNobleCryptoProvider`).
-- `src/v2/services/brantaService.ts` — orchestrates AES encrypt/decrypt around HTTP calls. `brantaClient.ts` is the raw HTTP layer; do not export or call it from consumer code.
-- `src/v2/classes/paymentBuilder.ts` — builder for `Payment` objects (`setDescription`, `addDestination`, `setTtl`).
+- `src/services/brantaService.ts` — orchestrates AES encrypt/decrypt around HTTP calls. `brantaClient.ts` is the raw HTTP layer; do not export or call it from consumer code.
+- `src/classes/paymentBuilder.ts` — builder for `Payment` objects (`setDescription`, `addDestination`, `setTtl`).
 - `src/classes/aesEncryption.ts` / `aesEncryptionService.ts` — internal AES primitives.
 - `test/` mirrors `src/` (Jest with `ts-jest` ESM preset; test files end in `.test.ts`).
 

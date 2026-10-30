@@ -1,16 +1,16 @@
-import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
-import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../classes/aesEncryption.js';
-import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
-import { BrantaApiOptions } from '../../classes/brantaApiOptions.js';
-import { BrantaEnvironment } from '../../enums/brantaEnvironment.js';
-import { DestinationType } from '../../enums/destinationType.js';
-import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../exceptions/brantaPaymentException.js';
+import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
+import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../classes/aesEncryption.js';
+import { AesEncryptionService } from '../classes/aesEncryptionService.js';
+import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
+import { BrantaEnvironment } from '../enums/brantaEnvironment.js';
+import { DestinationType } from '../enums/destinationType.js';
+import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
 import {
   getBaseUrl,
   getDerivedKeyType,
   toNormalizedHash,
   toUrlFragment,
-} from '../../extensions/brantaExtensions.js';
+} from '../extensions/brantaExtensions.js';
 import { GuidSecretGenerator } from '../classes/guidSecretGenerator.js';
 import { PaymentBuilder } from '../classes/paymentBuilder.js';
 import { detectDestinationType, QRParser } from '../classes/qrParser.js';

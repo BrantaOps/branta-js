@@ -1,5 +1,5 @@
-import { DestinationType } from '../../enums/destinationType.js';
-import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../../extensions/brantaExtensions.js';
+import { DestinationType } from '../enums/destinationType.js';
+import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;

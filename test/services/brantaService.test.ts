@@ -1,18 +1,18 @@
 import { beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../../src/classes/aesEncryption.js';
-import { BrantaApiOptions } from '../../../src/classes/brantaApiOptions.js';
-import { BrantaEnvironment } from '../../../src/enums/brantaEnvironment.js';
-import { DestinationType } from '../../../src/enums/destinationType.js';
-import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../../src/exceptions/brantaPaymentException.js';
-import { toNormalizedHash } from '../../../src/extensions/brantaExtensions.js';
-import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
-import { IAesEncryption } from '../../../src/v2/interfaces/iAesEncryption.js';
-import { IBrantaClient } from '../../../src/v2/interfaces/iBrantaClient.js';
-import { ISecretGenerator } from '../../../src/v2/interfaces/iSecretGenerator.js';
-import { Payment } from '../../../src/v2/models/payment.js';
-import { VerifyResult, VerifyStatus } from '../../../src/v2/models/verifyResult.js';
-import { BrantaService, type BrantaServiceOptions } from '../../../src/v2/services/brantaService.js';
+import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../src/classes/aesEncryption.js';
+import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
+import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
+import { DestinationType } from '../../src/enums/destinationType.js';
+import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../src/exceptions/brantaPaymentException.js';
+import { toNormalizedHash } from '../../src/extensions/brantaExtensions.js';
+import { PaymentBuilder } from '../../src/classes/paymentBuilder.js';
+import { IAesEncryption } from '../../src/interfaces/iAesEncryption.js';
+import { IBrantaClient } from '../../src/interfaces/iBrantaClient.js';
+import { ISecretGenerator } from '../../src/interfaces/iSecretGenerator.js';
+import { Payment } from '../../src/models/payment.js';
+import { VerifyResult, VerifyStatus } from '../../src/models/verifyResult.js';
+import { BrantaService, type BrantaServiceOptions } from '../../src/services/brantaService.js';
 
 const expectMatch = (result: VerifyResult): Extract<VerifyResult, { status: 'match' }> => {
   expect(result.status).toBe(VerifyStatus.Match);

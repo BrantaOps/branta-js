@@ -1,5 +1,5 @@
 import type { BrantaCryptoProvider } from './brantaCryptoProvider.js';
-import { IAesEncryption } from '../v2/interfaces/iAesEncryption.js';
+import { IAesEncryption } from '../interfaces/iAesEncryption.js';
 import { AesEncryption } from './aesEncryption.js';
 
 export class AesEncryptionService implements IAesEncryption {

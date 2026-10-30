@@ -1,7 +1,7 @@
-import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
-import { BrantaApiOptions } from '../../classes/brantaApiOptions.js';
-import { BrantaPaymentException } from '../../exceptions/brantaPaymentException.js';
-import { getApiKey, getBaseUrl, getHmacSecret } from '../../extensions/brantaExtensions.js';
+import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
+import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
+import { BrantaPaymentException } from '../exceptions/brantaPaymentException.js';
+import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
 import { paymentFromApi, paymentToApi } from './serialization.js';

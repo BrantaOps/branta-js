@@ -1,8 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { BrantaEnvironment } from '../../../src/enums/brantaEnvironment.js';
-import { VerifyStatus } from '../../../src/v2/models/verifyResult.js';
-import { BrantaService } from '../../../src/v2/services/brantaService.js';
+import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
+import { VerifyStatus } from '../../src/models/verifyResult.js';
+import { BrantaService } from '../../src/services/brantaService.js';
 
 const apiKey = process.env.BRANTA_API_KEY;
 const integrationMetricsToken = process.env.BRANTA_INTEGRATION_METRICS_TOKEN;

@@ -1,9 +1,9 @@
 import { describe, expect, jest, test } from '@jest/globals';
 
-import { BrantaApiOptions } from '../../../src/classes/brantaApiOptions.js';
-import { BrantaEnvironment } from '../../../src/enums/brantaEnvironment.js';
-import { BrantaPaymentException } from '../../../src/exceptions/brantaPaymentException.js';
-import { BrantaClient } from '../../../src/v2/services/brantaClient.js';
+import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
+import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
+import { BrantaPaymentException } from '../../src/exceptions/brantaPaymentException.js';
+import { BrantaClient } from '../../src/services/brantaClient.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
 const SameOrigin = 'http://localhost:3000';
