@@ -1,6 +1,6 @@
 # Branta JS SDK
 
-If you are implementing this SDK in a consumer project, see the **Integration Guide** section at the top of `README.md` — it covers integration types, recommended flows, and rules.
+If you are implementing this SDK in a consumer project: product rules (send vs receive, `match` / `unknown` / `tampered`, parent platforms) live in the [developer docs](https://developer.branta.pro). `README.md` is the JavaScript — install, constructor, samples, and crypto.
 
 ---
 
