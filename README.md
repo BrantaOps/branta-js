@@ -2,7 +2,7 @@
 
 JavaScript SDK for [Branta](https://developer.branta.pro). ESM only.
 
-Wallets call `verify()`. Platforms call `addPayment()`. What to show on `match`, `unknown`, and `tampered` — and how parent platforms work — is in the [developer docs](https://developer.branta.pro). This README is the JavaScript.
+Send (wallets) call `verify()`. Receive (platforms) call `addPayment()`. What to show on `match`, `unknown`, and `tampered` — and how parent platforms work — is in the [developer docs](https://developer.branta.pro). This README is the JavaScript.
 
 ## Install
 
@@ -10,7 +10,7 @@ Wallets call `verify()`. Platforms call `addPayment()`. What to show on `match`,
 npm i @branta-ops/branta
 ```
 
-## Wallet
+## Send
 
 ```ts
 import { BrantaEnvironment, BrantaService } from "@branta-ops/branta";
@@ -38,7 +38,7 @@ On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. bolt
 
 Missing crypto or a network failure throws. Do not treat that as `unknown`.
 
-## Platform
+## Receive
 
 ```ts
 import {
