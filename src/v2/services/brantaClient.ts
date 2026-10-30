@@ -1,4 +1,4 @@
-import type { BrantaCryptoProvider } from '../../index.js';
+import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
 import { BrantaPaymentException } from '../../exceptions/brantaPaymentException.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../../extensions/brantaExtensions.js';

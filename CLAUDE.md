@@ -7,11 +7,10 @@ If you are implementing this SDK in a consumer project, see the **Integration Gu
 TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consumers (wallets, platforms, parent platforms) call `BrantaService` to look up or post payments to Branta's V2 API. Mirrors the .NET SDK at [github.com/BrantaOps/branta-dotnet](https://github.com/BrantaOps/branta-dotnet) and should be kept feature-parity with it.
 
 ## Package layout
-- `src/index.ts` — shared exports (`BrantaServerBaseUrl`, `DestinationType`, options, exceptions, AES helpers).
-- `src/v2/index.ts` — the V2 API surface exported as the `@branta-ops/branta/v2` subpath: `BrantaService`, `BrantaClient`, `PaymentBuilder`, `QRParser`, `GuidSecretGenerator`, plus models and interfaces.
-- `src/v2/services/brantaService.ts` — orchestrates AES encrypt/decrypt around HTTP calls. `brantaClient.ts` is the raw HTTP layer; do not call it directly from consumer code.
+- `src/index.ts` — the public package entry (`BrantaService`, `PaymentBuilder`, `DestinationType`, options, exceptions, `createNobleCryptoProvider`).
+- `src/v2/services/brantaService.ts` — orchestrates AES encrypt/decrypt around HTTP calls. `brantaClient.ts` is the raw HTTP layer; do not export or call it from consumer code.
 - `src/v2/classes/paymentBuilder.ts` — builder for `Payment` objects (`setDescription`, `addDestination`, `setTtl`).
-- `src/classes/aesEncryption.ts` / `aesEncryptionService.ts` — the AES primitives shared with V2.
+- `src/classes/aesEncryption.ts` / `aesEncryptionService.ts` — internal AES primitives.
 - `test/` mirrors `src/` (Jest with `ts-jest` ESM preset; test files end in `.test.ts`).
 
 ## Scripts
@@ -29,6 +28,6 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 
 ## Conventions
 - ESM-only (`"type": "module"` in `package.json`). Local imports must use `.js` extensions even from `.ts` files; Jest's `moduleNameMapper` strips them at test time.
-- Public API lives under `src/v2/*`; types outside `v2/` (`src/classes`, `src/enums`, `src/exceptions`) are shared primitives reused by V2.
+- Public API is whatever `src/index.ts` exports. Do not add `BrantaClient`, `QRParser`, AES classes, or `GuidSecretGenerator` to that list.
 - `BrantaServiceOptions` can be overridden per-call — every public method accepts an optional options parameter; respect that pattern when adding new methods.
 - Keep parity with the .NET SDK: when adding or changing a public method here, mirror the change there (and vice versa).

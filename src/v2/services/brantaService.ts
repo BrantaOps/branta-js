@@ -1,4 +1,4 @@
-import type { BrantaCryptoProvider } from '../../index.js';
+import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
 import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../classes/aesEncryption.js';
 import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
 import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';

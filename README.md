@@ -28,7 +28,7 @@ If they are on the receive side, ask one follow-up:
 **4. Apply these rules:**
 
 General (all types):
-- Never instantiate `BrantaClient` directly — always use `BrantaService`.
+- Use `BrantaService`. Do not call Guardrail HTTP yourself.
 - Never show an error or "not verified" message when a lookup returns empty or throws. An empty result means the destination is unknown to Branta, not that it is malicious. Show nothing.
 - For `baseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
 - If serving over HTTP or running in React Native / Expo, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
@@ -61,8 +61,7 @@ Pass the scanned QR text or the pasted destination to `verify`. bolt11, Ark, and
 Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
 
 ```ts
-import { BrantaServerBaseUrl } from "@branta-ops/branta";
-import { BrantaService } from "@branta-ops/branta/v2";
+import { BrantaServerBaseUrl, BrantaService } from "@branta-ops/branta";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
@@ -89,8 +88,7 @@ async function lookup(input: string) {
 Platforms post payments to Branta so wallets can verify them. Every destination is encrypted.
 
 ```ts
-import { BrantaServerBaseUrl } from "@branta-ops/branta";
-import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
+import { BrantaServerBaseUrl, BrantaService, PaymentBuilder } from "@branta-ops/branta";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
@@ -117,8 +115,7 @@ Choose a variant based on how API keys are structured. Shared key needs only an 
 Construct with a single API key; identify the child platform per-payment. No HMAC secret.
 
 ```ts
-import { BrantaServerBaseUrl } from "@branta-ops/branta";
-import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
+import { BrantaServerBaseUrl, BrantaService, PaymentBuilder } from "@branta-ops/branta";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
@@ -143,8 +140,7 @@ const { payment: response, secret, verifyUrl } = await service.addPayment(paymen
 Construct the service with the shared HMAC secret only; pass each child's API key per-call.
 
 ```ts
-import { BrantaServerBaseUrl } from "@branta-ops/branta";
-import { BrantaService, PaymentBuilder } from "@branta-ops/branta/v2";
+import { BrantaServerBaseUrl, BrantaService, PaymentBuilder } from "@branta-ops/branta";
 
 const service = new BrantaService({
   baseUrl: BrantaServerBaseUrl.Production,
@@ -182,8 +178,7 @@ npm i @peculiar/webcrypto
 
 ```ts
 import { Crypto } from '@peculiar/webcrypto';
-import { BrantaServerBaseUrl } from '@branta-ops/branta';
-import { BrantaService } from '@branta-ops/branta/v2';
+import { BrantaServerBaseUrl, BrantaService } from '@branta-ops/branta';
 
 const crypto = new Crypto();
 const service = new BrantaService(
@@ -207,7 +202,7 @@ npm i @noble/hashes @noble/ciphers
 ```
 
 ```ts
-import { createNobleCryptoProvider } from '@branta-ops/branta';
+import { BrantaServerBaseUrl, BrantaService, createNobleCryptoProvider } from '@branta-ops/branta';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hmac } from '@noble/hashes/hmac.js';
 import { gcm } from '@noble/ciphers/aes.js';

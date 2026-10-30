@@ -1,4 +1,4 @@
-import type { BrantaCryptoProvider } from '../index.js';
+import type { BrantaCryptoProvider } from './brantaCryptoProvider.js';
 import { IAesEncryption } from '../v2/interfaces/iAesEncryption.js';
 import { AesEncryption } from './aesEncryption.js';
 

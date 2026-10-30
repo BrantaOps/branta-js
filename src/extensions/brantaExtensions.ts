@@ -1,4 +1,4 @@
-import type { BrantaCryptoProvider } from '../index.js';
+import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
 import { BrantaClientOptions } from '../classes/brantaClientOptions.js';
 import { BrantaServerBaseUrl, BrantaServerBaseUrls } from '../enums/brantaServerBaseUrl.js';
 import { DestinationType } from '../enums/destinationType.js';
