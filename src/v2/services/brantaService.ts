@@ -2,6 +2,7 @@ import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js
 import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../classes/aesEncryption.js';
 import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
 import { BrantaApiOptions } from '../../classes/brantaApiOptions.js';
+import { BrantaEnvironment } from '../../enums/brantaEnvironment.js';
 import { DestinationType } from '../../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../exceptions/brantaPaymentException.js';
 import {
@@ -54,32 +55,31 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   return first;
 };
 
-export interface BrantaServiceOptions {
-  defaultOptions?: BrantaApiOptions;
+export interface BrantaServiceOptions extends BrantaApiOptions {
+  environment: BrantaEnvironment;
+  crypto?: BrantaCryptoProvider;
+  fetchImpl?: typeof fetch;
+}
+
+interface BrantaServiceDependencies {
   client?: IBrantaClient;
   aesEncryption?: IAesEncryption;
   secretGenerator?: ISecretGenerator;
-  fetchImpl?: typeof fetch;
-  crypto?: BrantaCryptoProvider;
 }
 
 export class BrantaService implements IBrantaService {
-  private readonly defaultOptions?: BrantaApiOptions;
+  private readonly defaultOptions: BrantaApiOptions;
   private readonly client: IBrantaClient;
   private readonly aesEncryption: IAesEncryption;
   private readonly secretGenerator: ISecretGenerator;
   private readonly crypto?: BrantaCryptoProvider;
 
-  constructor(defaultOptions?: BrantaApiOptions, opts: BrantaServiceOptions = {}) {
-    const merged: BrantaServiceOptions = { ...opts };
-    if (defaultOptions !== undefined && merged.defaultOptions === undefined) {
-      merged.defaultOptions = defaultOptions;
-    }
-    if (merged.defaultOptions !== undefined) this.defaultOptions = merged.defaultOptions;
-    this.crypto = merged.crypto;
-    this.client = merged.client ?? new BrantaClient(this.defaultOptions, merged.fetchImpl, this.crypto);
-    this.aesEncryption = merged.aesEncryption ?? new AesEncryptionService(this.crypto);
-    this.secretGenerator = merged.secretGenerator ?? new GuidSecretGenerator(this.crypto);
+  constructor(options: BrantaServiceOptions, deps: BrantaServiceDependencies = {}) {
+    this.defaultOptions = options;
+    this.crypto = options.crypto;
+    this.client = deps.client ?? new BrantaClient(this.defaultOptions, options.fetchImpl, this.crypto);
+    this.aesEncryption = deps.aesEncryption ?? new AesEncryptionService(this.crypto);
+    this.secretGenerator = deps.secretGenerator ?? new GuidSecretGenerator(this.crypto);
   }
 
   createPaymentBuilder(): PaymentBuilder {

@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **BREAKING:** `QRParseException`. Nothing threw it.
 - **BREAKING:** `Payment.btcPayServerPluginVersion`.
 - **BREAKING:** `Destination.zkId` is `Destination.id`. Guardrail still receives `zk_id`.
+- **BREAKING:** `new BrantaService(apiOptions, { crypto })` is `new BrantaService({ ...apiOptions, crypto })`. `BrantaServiceOptions` is the constructor argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). Per-call overrides stay `BrantaApiOptions`.
 
 ### Changed
 - A bolt11 / Ark / silent-payment miss no longer retries the raw string.

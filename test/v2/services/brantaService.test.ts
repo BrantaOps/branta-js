@@ -12,7 +12,7 @@ import { IBrantaClient } from '../../../src/v2/interfaces/iBrantaClient.js';
 import { ISecretGenerator } from '../../../src/v2/interfaces/iSecretGenerator.js';
 import { Payment } from '../../../src/v2/models/payment.js';
 import { VerifyResult, VerifyStatus } from '../../../src/v2/models/verifyResult.js';
-import { BrantaService } from '../../../src/v2/services/brantaService.js';
+import { BrantaService, type BrantaServiceOptions } from '../../../src/v2/services/brantaService.js';
 
 const expectMatch = (result: VerifyResult): Extract<VerifyResult, { status: 'match' }> => {
   expect(result.status).toBe(VerifyStatus.Match);
@@ -110,7 +110,7 @@ describe('BrantaService', () => {
   let clientMock: ClientMock;
   let aesMock: AesMock;
   let secretMock: SecretMock;
-  let defaultOptions: BrantaApiOptions;
+  let defaultOptions: BrantaServiceOptions;
   let service: BrantaService;
   let Bolt11Hash: string;
   let ArkHash: string;

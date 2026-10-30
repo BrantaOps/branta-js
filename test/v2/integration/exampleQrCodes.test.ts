@@ -17,7 +17,7 @@ const fetchLive: typeof fetch = (input, init) => {
 };
 
 const makeService = (environment: BrantaEnvironment) =>
-  new BrantaService({ environment, apiKey: apiKey }, { fetchImpl: fetchLive });
+  new BrantaService({ environment, apiKey: apiKey, fetchImpl: fetchLive });
 
 // Live lookups of the published example QR codes. Skipped unless
 // BRANTA_RUN_INTEGRATION=1 — local `npm test` and PR CI must not hit Guardrail.

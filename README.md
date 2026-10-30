@@ -185,10 +185,10 @@ import { Crypto } from '@peculiar/webcrypto';
 import { BrantaEnvironment, BrantaService } from '@branta-ops/branta';
 
 const crypto = new Crypto();
-const service = new BrantaService(
-  { environment: BrantaEnvironment.Production },
-  { crypto },
-);
+const service = new BrantaService({
+  environment: BrantaEnvironment.Production,
+  crypto,
+});
 
 // On the receive side, use createPaymentBuilder() so the builder
 // shares the same crypto instance:
@@ -212,10 +212,10 @@ import { hmac } from '@noble/hashes/hmac.js';
 import { gcm } from '@noble/ciphers/aes.js';
 import { randomBytes } from '@noble/hashes/utils.js';
 
-const service = new BrantaService(
-  { environment: BrantaEnvironment.Production },
-  { crypto: createNobleCryptoProvider({ sha256, hmac, gcm, randomBytes }) },
-);
+const service = new BrantaService({
+  environment: BrantaEnvironment.Production,
+  crypto: createNobleCryptoProvider({ sha256, hmac, gcm, randomBytes }),
+});
 ```
 
 # Release
