@@ -19,10 +19,6 @@ export function getUrl(environment: BrantaEnvironment): string {
   return url;
 }
 
-export function getUri(defaultOptions: BrantaApiOptions | undefined, overrideOptions: BrantaApiOptions | undefined): URL {
-  return new URL(getBaseUrl(defaultOptions, overrideOptions));
-}
-
 export function getBaseUrl(defaultOptions: BrantaApiOptions | undefined, overrideOptions: BrantaApiOptions | undefined): string {
   const environment = overrideOptions?.environment ?? defaultOptions?.environment;
   if (!environment) throw new Error('Branta: environment is a required option.');

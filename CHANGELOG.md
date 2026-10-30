@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **BREAKING:** `PrivacyMode` and the `privacy` client option. The SDK encrypts every destination: on-chain lookups need `branta_id` / `branta_secret`; bolt11, Ark, and silent payments still resolve from the value.
 - **BREAKING:** `PaymentBuilder.setZk()` and `Destination.isZk`.
 - **BREAKING:** `getPayments` and `getPaymentsByQrCode`. Wallets call `verify(input)` for both QR scan and clipboard paste.
-- **BREAKING:** The `@branta-ops/branta/v2` subpath. Import from `@branta-ops/branta`. `BrantaClient`, `QRParser`, `AesEncryption`, `AesEncryptionService`, `GuidSecretGenerator`, `getDefaultValue`, and the `IBranta*` / `IAesEncryption` / `ISecretGenerator` types are no longer exported.
+- **BREAKING:** The `@branta-ops/branta/v2` subpath. Import from `@branta-ops/branta`. `BrantaClient`, `QRParser`, `AesEncryption`, `AesEncryptionService`, `GuidSecretGenerator`, and the `IBranta*` / `IAesEncryption` / `ISecretGenerator` types are no longer exported. `getDefaultValue` is gone.
 - **BREAKING:** `verify()` returns `{ status, verifyUrl }` with `status` of `match`, `unknown`, or `tampered`. A swapped address is `tampered`, not a thrown exception. `payments` is present only on `match`. `PaymentsResult` and `BrantaPaymentExceptionReason.Tampered` are gone.
 - **BREAKING:** `DestinationType.Bolt12`, `LnUrl`, `TetherAddress`, and `LnAddress`. `DestinationType` is the set of types `addPayment` accepts: bitcoin, bolt11, Ark, and silent payments.
 - **BREAKING:** `BrantaClientOptions` is `BrantaApiOptions`. `baseUrl` is `environment`; `BrantaServerBaseUrl` / `BrantaServerBaseUrls` are `BrantaEnvironment` / `BrantaEnvironmentUrls`; `defaultApiKey` is `apiKey`.

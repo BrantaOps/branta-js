@@ -14,9 +14,3 @@ export interface Payment {
   childPlatform?: Platform;
   isMetadataDecrypted?: boolean;
 }
-
-export function getDefaultValue(payment: Payment): string {
-  const value = payment.destinations?.[0]?.value;
-  if (!value) throw new Error('Payment has no destinations.');
-  return value;
-}
