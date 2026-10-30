@@ -32,7 +32,7 @@ const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const EncryptedBitcoinAddress = 'encrypted-bitcoin-address';
 const Secret = 'test-secret';
 const brantaBitcoinLookup = (secret = Secret) =>
-  `bitcoin:?branta_id=${encodeURIComponent(EncryptedBitcoinAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+  `bitcoin:${BitcoinAddress}?branta_id=${encodeURIComponent(EncryptedBitcoinAddress)}&branta_secret=${encodeURIComponent(secret)}`;
 
 const Bolt11Invoice = 'lnbc100n1ptest';
 const EncryptedBolt11 = 'encrypted-bolt11-value';
@@ -446,23 +446,20 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
-    test('verify_noPayableInstruction_wrongSecret_returnsEncryptedRecord', async () => {
-      aesMock.decrypt.mockImplementation(async () => {
-        throw new Error('auth tag mismatch');
-      });
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBitcoinAddress) return [encryptedBitcoinPayment()];
-        return [];
-      });
-
+    test('verify_noPayableInstruction_wrongSecret_returnsUnknown', async () => {
       const qrText = `bitcoin:?branta_id=${EncryptedBitcoinAddress}&branta_secret=00000000-0000-4000-8000-000000000000`;
-      const { payments } = expectMatch(await service.verify(qrText));
+      const result = await service.verify(qrText);
 
-      expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]).toMatchObject({
-        value: EncryptedBitcoinAddress,
-        isEncrypted: true,
-      });
+      expectUnknown(result);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('verify_noPayableInstruction_correctSecret_returnsUnknown', async () => {
+      const qrText = `bitcoin:?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
+      const result = await service.verify(qrText);
+
+      expectUnknown(result);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
   });
 
@@ -583,25 +580,19 @@ describe('BrantaService', () => {
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
     });
 
-    test('verify_bitcoinBrantaUri_wrongKey_leavesEncrypted', async () => {
+    test('verify_bitcoinBrantaUri_wrongKey_returnsUnknown', async () => {
       clientMock.getPayments.mockResolvedValue([encryptedBitcoinPayment()]);
       aesMock.decrypt.mockImplementationOnce(async () => {
         throw new Error('Decryption failed: auth tag mismatch');
       });
 
-      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup('wrong-key')));
-
-      expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
-      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(true);
+      expectUnknown(await service.verify(brantaBitcoinLookup('wrong-key')));
     });
 
-    test('verify_unencryptedDestination_doesNotDecrypt', async () => {
+    test('verify_unencryptedDestination_returnsUnknown', async () => {
       clientMock.getPayments.mockResolvedValue([plainBitcoinPayment()]);
 
-      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
-
-      expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
+      expectUnknown(await service.verify(brantaBitcoinLookup()));
       expect(aesMock.decrypt).not.toHaveBeenCalled();
     });
 

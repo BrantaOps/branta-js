@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **BREAKING:** `Destination.zkId` is `Destination.id`. Guardrail still receives `zk_id`.
 - **BREAKING:** `new BrantaService(apiOptions, { crypto })` is `new BrantaService({ ...apiOptions, crypto })`. `BrantaServiceOptions` is the constructor argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). Per-call overrides stay `BrantaApiOptions`.
 
+### Fixed
+- `verify()` of a `bitcoin:` URI with `branta_id` / `branta_secret` and no payable destination is `unknown`. Finding the record is not a match.
+
 ### Changed
 - A bolt11 / Ark / silent-payment miss no longer retries the raw string.
 - A raw on-chain address is not looked up. `verify` returns empty for those destinations, including testnet `tb1` / `bcrt1`.

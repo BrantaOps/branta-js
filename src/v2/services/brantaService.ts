@@ -101,6 +101,9 @@ export class BrantaService implements IBrantaService {
         const additionalValues = parser.destinations
           .filter((d) => getDerivedKeyType(d.value) !== undefined)
           .map((d) => d.value);
+        if (expectedOnChainAddress === undefined && additionalValues.length === 0) {
+          return { status: VerifyStatus.Unknown, verifyUrl: this.buildVerifyUrl(options, lookup) };
+        }
         const { payments, verifyUrl } = await this.lookupByBrantaId(
           parser.onChainEncryptionText!,
           parser.onChainEncryptionSecret,
@@ -152,7 +155,8 @@ export class BrantaService implements IBrantaService {
       for (const value of additionalHashValues) {
         if (!(await this.decryptDerivedKeyDestinations(payment, value, keys))) hashesBound = false;
       }
-      if (onChainBound && hashesBound) bound.push(payment);
+      const hasPayableInstruction = expectedOnChainAddress !== undefined || additionalHashValues.length > 0;
+      if (hasPayableInstruction && onChainBound && hashesBound) bound.push(payment);
     }
 
     return { payments: bound, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
