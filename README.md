@@ -4,8 +4,6 @@ JavaScript SDK for [Branta](https://developer.branta.pro). ESM only.
 
 Wallets call `verify()`. Platforms call `addPayment()`. What to show on `match`, `unknown`, and `tampered` — and how parent platforms work — is in the [developer docs](https://developer.branta.pro). This README is the JavaScript.
 
-If you are an agent: follow the docs for product rules, then this file for package names and samples.
-
 ## Install
 
 ```bash
@@ -64,7 +62,7 @@ const payment = new PaymentBuilder()
 const { secret, verifyUrl } = await service.addPayment(payment);
 ```
 
-Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the wallet QR. Parent platforms: [docs](https://developer.branta.pro).
+Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the wallet QR.
 
 ## Crypto
 
@@ -107,12 +105,4 @@ const service = new BrantaService({
 });
 ```
 
-## API
-
-| | |
-|---|---|
-| `BrantaService` | `verify`, `addPayment`, `isApiKeyValid`, `createPaymentBuilder` |
-| Options | `environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`. Per-call overrides: `BrantaApiOptions`. |
-| `DestinationType` | `bitcoin_address`, `bolt11`, `ark_address`, `silent_payment` |
-
-[Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Docs](https://developer.branta.pro)
+[Changelog](CHANGELOG.md) · [Security](SECURITY.md)
