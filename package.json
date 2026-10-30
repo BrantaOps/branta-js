@@ -28,7 +28,7 @@
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --collect-coverage",
     "test:integration": "BRANTA_RUN_INTEGRATION=1 node --experimental-vm-modules node_modules/jest/bin/jest.js test/integration/exampleQrCodes.test.ts --watchman=false",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
