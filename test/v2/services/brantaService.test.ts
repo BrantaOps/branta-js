@@ -824,7 +824,7 @@ describe('BrantaService', () => {
 
     test('addPayment_unsupportedType_throws', async () => {
       const payment = new PaymentBuilder()
-        .addDestination('0xdeadbeef', DestinationType.TetherAddress)
+        .addDestination('not-a-payable-destination')
         .build();
 
       await expect(service.addPayment(payment)).rejects.toThrow(BrantaPaymentException);

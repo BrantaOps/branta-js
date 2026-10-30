@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import { DestinationType } from '../../../src/enums/destinationType.js';
 import { PaymentBuilder } from '../../../src/v2/classes/paymentBuilder.js';
-import { destinationToApi, paymentToApi } from '../../../src/v2/services/serialization.js';
+import { destinationFromApi, destinationToApi, paymentToApi } from '../../../src/v2/services/serialization.js';
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const Bolt11Invoice = 'lnbc100n1ptest';
@@ -27,11 +27,8 @@ describe('PaymentBuilder', () => {
   test.each([
     [DestinationType.BitcoinAddress, 'bitcoin_address'],
     [DestinationType.Bolt11, 'bolt11'],
-    [DestinationType.Bolt12, 'bolt12'],
-    [DestinationType.LnUrl, 'ln_url'],
-    [DestinationType.TetherAddress, 'tether_address'],
-    [DestinationType.LnAddress, 'ln_address'],
     [DestinationType.ArkAddress, 'ark_address'],
+    [DestinationType.SilentPayment, 'silent_payment'],
   ])('destinationType_serializesToCorrectJsonString (%s)', (type, expected) => {
     const destination = { value: 'addr', type } as const;
     const apiObject = destinationToApi(destination);
@@ -39,6 +36,12 @@ describe('PaymentBuilder', () => {
     const parsed = JSON.parse(json) as Record<string, unknown>;
 
     expect(parsed['type']).toBe(expected);
+  });
+
+  test('destinationFromApi_unknownType_isOmitted', () => {
+    const destination = destinationFromApi({ value: 'addr', type: 'not_a_destination_type', zk: true });
+
+    expect(destination.type).toBeUndefined();
   });
 
   test('destinationType_undefinedOmittedFromJson', () => {

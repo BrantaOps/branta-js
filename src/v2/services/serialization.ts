@@ -1,5 +1,8 @@
+import { DestinationType } from '../../enums/destinationType.js';
 import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
+
+const destinationTypes = new Set<string>(Object.values(DestinationType));
 
 export const destinationToApi = (destination: Destination): Record<string, unknown> => {
   const result: Record<string, unknown> = {
@@ -22,8 +25,8 @@ export const destinationFromApi = (raw: Record<string, unknown>): Destination =>
   if (!Boolean(raw['zk'] ?? false)) {
     destination.isEncrypted = false;
   }
-  if (raw['type'] !== undefined && raw['type'] !== null) {
-    destination.type = raw['type'] as Destination['type'];
+  if (typeof raw['type'] === 'string' && destinationTypes.has(raw['type'])) {
+    destination.type = raw['type'] as DestinationType;
   }
   if (raw['zk_id'] !== undefined && raw['zk_id'] !== null) {
     destination.zkId = String(raw['zk_id']);
