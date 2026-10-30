@@ -1,8 +1,7 @@
-export { BrantaServerBaseUrl, BrantaServerBaseUrls } from './enums/brantaServerBaseUrl.js';
+export { BrantaEnvironment, BrantaEnvironmentUrls } from './enums/brantaEnvironment.js';
 export { DestinationType } from './enums/destinationType.js';
-export type { BrantaClientOptions } from './classes/brantaClientOptions.js';
+export type { BrantaApiOptions } from './classes/brantaApiOptions.js';
 export { BrantaPaymentException, BrantaPaymentExceptionReason } from './exceptions/brantaPaymentException.js';
-export { QRParseException } from './exceptions/qrParseException.js';
 export { createNobleCryptoProvider } from './classes/nobleCryptoProvider.js';
 export type { NobleDeps } from './classes/nobleCryptoProvider.js';
 export type { BrantaCryptoProvider } from './classes/brantaCryptoProvider.js';

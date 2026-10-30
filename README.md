@@ -30,7 +30,7 @@ If they are on the receive side, ask one follow-up:
 General (all types):
 - Use `BrantaService`. Do not call Guardrail HTTP yourself.
 - Switch on `result.status`. Do not infer outcome from `payments` or from thrown errors.
-- For `baseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
+- For `environment`: use `BrantaEnvironment.Production` only in production environments. Use `BrantaEnvironment.Staging` everywhere else — including local development, CI, and staging/test environments.
 - If serving over HTTP or running in React Native / Expo, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
 
 Send side (wallets):
@@ -46,11 +46,11 @@ Receive side (platforms):
 - Store the `secret` returned by `addPayment` alongside the invoice — it is required to reconstruct the verify URL for the wallet.
 
 Receive side (parent platforms — per-client keys), in addition to the platform rules:
-- Include `hmacSecret` in the `BrantaService` options but omit `defaultApiKey` at service construction.
-- Pass per-call options with each child's `defaultApiKey` to scope requests.
+- Include `hmacSecret` in the `BrantaService` options but omit `apiKey` at service construction.
+- Pass per-call options with each child's `apiKey` to scope requests.
 
 Receive side (parent platforms — shared key), in addition to the platform rules:
-- Include `defaultApiKey` in the `BrantaService` options. Do not include `hmacSecret`.
+- Include `apiKey` in the `BrantaService` options. Do not include `hmacSecret`.
 - Call `.setChildPlatform(name, logoUrl, logoLightUrl)` on the builder to tag each payment with the child's branding.
 
 # Quick Start
@@ -60,10 +60,10 @@ Receive side (parent platforms — shared key), in addition to the platform rule
 Pass the scanned QR text or the pasted destination to `verify`. bolt11, Ark, and Silent Payments resolve from the value. On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret` (that is how platforms encode a Branta invoice). A bare address is `unknown`.
 
 ```ts
-import { BrantaServerBaseUrl, BrantaService } from "@branta-ops/branta";
+import { BrantaEnvironment, BrantaService } from "@branta-ops/branta";
 
 const service = new BrantaService({
-  baseUrl: BrantaServerBaseUrl.Production,
+  environment: BrantaEnvironment.Production,
 });
 
 async function lookup(input: string) {
@@ -92,11 +92,11 @@ async function lookup(input: string) {
 Platforms post payments to Branta so wallets can verify them. Every destination is encrypted.
 
 ```ts
-import { BrantaServerBaseUrl, BrantaService, PaymentBuilder } from "@branta-ops/branta";
+import { BrantaEnvironment, BrantaService, PaymentBuilder } from "@branta-ops/branta";
 
 const service = new BrantaService({
-  baseUrl: BrantaServerBaseUrl.Production,
-  defaultApiKey: "<default-api-key>",
+  environment: BrantaEnvironment.Production,
+  apiKey: "<api-key>",
 });
 
 const payment = new PaymentBuilder()
@@ -119,11 +119,11 @@ Choose a variant based on how API keys are structured. Shared key needs only an 
 Construct with a single API key; identify the child platform per-payment. No HMAC secret.
 
 ```ts
-import { BrantaServerBaseUrl, BrantaService, PaymentBuilder } from "@branta-ops/branta";
+import { BrantaEnvironment, BrantaService, PaymentBuilder } from "@branta-ops/branta";
 
 const service = new BrantaService({
-  baseUrl: BrantaServerBaseUrl.Production,
-  defaultApiKey: "<shared-api-key>",
+  environment: BrantaEnvironment.Production,
+  apiKey: "<shared-api-key>",
 });
 
 const payment = new PaymentBuilder()
@@ -144,10 +144,10 @@ const { payment: response, secret, verifyUrl } = await service.addPayment(paymen
 Construct the service with the shared HMAC secret only; pass each child's API key per-call.
 
 ```ts
-import { BrantaServerBaseUrl, BrantaService, PaymentBuilder } from "@branta-ops/branta";
+import { BrantaEnvironment, BrantaService, PaymentBuilder } from "@branta-ops/branta";
 
 const service = new BrantaService({
-  baseUrl: BrantaServerBaseUrl.Production,
+  environment: BrantaEnvironment.Production,
   hmacSecret: "<hmac-secret>",
 });
 
@@ -159,7 +159,7 @@ const payment = new PaymentBuilder()
 
 // Scope to the child platform's API key per-call
 const { payment: response, secret, verifyUrl } = await service.addPayment(payment, {
-  defaultApiKey: "<child-api-key>",
+  apiKey: "<child-api-key>",
 });
 ```
 
@@ -182,11 +182,11 @@ npm i @peculiar/webcrypto
 
 ```ts
 import { Crypto } from '@peculiar/webcrypto';
-import { BrantaServerBaseUrl, BrantaService } from '@branta-ops/branta';
+import { BrantaEnvironment, BrantaService } from '@branta-ops/branta';
 
 const crypto = new Crypto();
 const service = new BrantaService(
-  { baseUrl: BrantaServerBaseUrl.Production },
+  { environment: BrantaEnvironment.Production },
   { crypto },
 );
 
@@ -206,14 +206,14 @@ npm i @noble/hashes @noble/ciphers
 ```
 
 ```ts
-import { BrantaServerBaseUrl, BrantaService, createNobleCryptoProvider } from '@branta-ops/branta';
+import { BrantaEnvironment, BrantaService, createNobleCryptoProvider } from '@branta-ops/branta';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hmac } from '@noble/hashes/hmac.js';
 import { gcm } from '@noble/ciphers/aes.js';
 import { randomBytes } from '@noble/hashes/utils.js';
 
 const service = new BrantaService(
-  { baseUrl: BrantaServerBaseUrl.Production },
+  { environment: BrantaEnvironment.Production },
   { crypto: createNobleCryptoProvider({ sha256, hmac, gcm, randomBytes }) },
 );
 ```

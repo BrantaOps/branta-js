@@ -1,6 +1,6 @@
 import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
-import { BrantaClientOptions } from '../classes/brantaClientOptions.js';
-import { BrantaServerBaseUrl, BrantaServerBaseUrls } from '../enums/brantaServerBaseUrl.js';
+import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
+import { BrantaEnvironment, BrantaEnvironmentUrls } from '../enums/brantaEnvironment.js';
 import { DestinationType } from '../enums/destinationType.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
@@ -13,27 +13,27 @@ const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
   return c.subtle;
 };
 
-export function getUrl(server: BrantaServerBaseUrl): string {
-  const url = BrantaServerBaseUrls[server];
-  if (!url) throw new Error(`No URL defined for ${server}`);
+export function getUrl(environment: BrantaEnvironment): string {
+  const url = BrantaEnvironmentUrls[environment];
+  if (!url) throw new Error(`No URL defined for ${environment}`);
   return url;
 }
 
-export function getUri(defaultOptions: BrantaClientOptions | undefined, overrideOptions: BrantaClientOptions | undefined): URL {
+export function getUri(defaultOptions: BrantaApiOptions | undefined, overrideOptions: BrantaApiOptions | undefined): URL {
   return new URL(getBaseUrl(defaultOptions, overrideOptions));
 }
 
-export function getBaseUrl(defaultOptions: BrantaClientOptions | undefined, overrideOptions: BrantaClientOptions | undefined): string {
-  const baseUrl = overrideOptions?.baseUrl ?? defaultOptions?.baseUrl;
-  if (!baseUrl) throw new Error('Branta: BaseUrl is a required option.');
-  return getUrl(baseUrl);
+export function getBaseUrl(defaultOptions: BrantaApiOptions | undefined, overrideOptions: BrantaApiOptions | undefined): string {
+  const environment = overrideOptions?.environment ?? defaultOptions?.environment;
+  if (!environment) throw new Error('Branta: environment is a required option.');
+  return getUrl(environment);
 }
 
-export function getApiKey(defaultOptions: BrantaClientOptions | undefined, overrideOptions: BrantaClientOptions | undefined): string | undefined {
-  return overrideOptions?.defaultApiKey ?? defaultOptions?.defaultApiKey;
+export function getApiKey(defaultOptions: BrantaApiOptions | undefined, overrideOptions: BrantaApiOptions | undefined): string | undefined {
+  return overrideOptions?.apiKey ?? defaultOptions?.apiKey;
 }
 
-export function getHmacSecret(defaultOptions: BrantaClientOptions | undefined, overrideOptions: BrantaClientOptions | undefined): string | undefined {
+export function getHmacSecret(defaultOptions: BrantaApiOptions | undefined, overrideOptions: BrantaApiOptions | undefined): string | undefined {
   return overrideOptions?.hmacSecret ?? defaultOptions?.hmacSecret;
 }
 

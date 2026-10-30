@@ -13,11 +13,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **BREAKING:** The `@branta-ops/branta/v2` subpath. Import from `@branta-ops/branta`. `BrantaClient`, `QRParser`, `AesEncryption`, `AesEncryptionService`, `GuidSecretGenerator`, `getDefaultValue`, and the `IBranta*` / `IAesEncryption` / `ISecretGenerator` types are no longer exported.
 - **BREAKING:** `verify()` returns `{ status, verifyUrl }` with `status` of `match`, `unknown`, or `tampered`. A swapped address is `tampered`, not a thrown exception. `payments` is present only on `match`. `PaymentsResult` and `BrantaPaymentExceptionReason.Tampered` are gone.
 - **BREAKING:** `DestinationType.Bolt12`, `LnUrl`, `TetherAddress`, and `LnAddress`. `DestinationType` is the set of types `addPayment` accepts: bitcoin, bolt11, Ark, and silent payments.
+- **BREAKING:** `BrantaClientOptions` is `BrantaApiOptions`. `baseUrl` is `environment`; `BrantaServerBaseUrl` / `BrantaServerBaseUrls` are `BrantaEnvironment` / `BrantaEnvironmentUrls`; `defaultApiKey` is `apiKey`.
+- **BREAKING:** `QRParseException`. Nothing threw it.
+- **BREAKING:** `Payment.btcPayServerPluginVersion`.
+- **BREAKING:** `Destination.zkId` is `Destination.id`. Guardrail still receives `zk_id`.
 
 ### Changed
 - A bolt11 / Ark / silent-payment miss no longer retries the raw string.
 - A raw on-chain address is not looked up. `verify` returns empty for those destinations, including testnet `tb1` / `bcrt1`.
-- `addPayment` infers `bitcoin_address` from the value when `type` is omitted, so `addDestination(address)` still encrypts.
+- `addPayment` infers `bitcoin_address` from the value when `type` is omitted, so `addDestination(value)` still encrypts.
 - `destinationToApi` always sends `zk: true` (Guardrail wire field).
 
 ## [[3.2.5](https://github.com/BrantaOps/branta-js/compare/v3.2.4...v3.2.5)] - 2026-10-29

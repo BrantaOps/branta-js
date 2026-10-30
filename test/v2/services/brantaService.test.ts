@@ -1,8 +1,8 @@
 import { beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../../src/classes/aesEncryption.js';
-import { BrantaClientOptions } from '../../../src/classes/brantaClientOptions.js';
-import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
+import { BrantaApiOptions } from '../../../src/classes/brantaApiOptions.js';
+import { BrantaEnvironment } from '../../../src/enums/brantaEnvironment.js';
 import { DestinationType } from '../../../src/enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../../src/exceptions/brantaPaymentException.js';
 import { toNormalizedHash } from '../../../src/extensions/brantaExtensions.js';
@@ -41,9 +41,9 @@ const DecryptedBolt11 = 'lnbc100n1pdecrypted';
 const ArkAddress = 'ark100testaddress';
 const EncryptedArkAddress = 'encrypted-ark-address';
 
-type GetPaymentsFn = (destinationValue: string, options?: BrantaClientOptions, signal?: AbortSignal) => Promise<Payment[]>;
-type PostPaymentFn = (payment: Payment, options?: BrantaClientOptions, signal?: AbortSignal) => Promise<Payment | undefined>;
-type IsApiKeyValidFn = (options?: BrantaClientOptions, signal?: AbortSignal) => Promise<boolean>;
+type GetPaymentsFn = (destinationValue: string, options?: BrantaApiOptions, signal?: AbortSignal) => Promise<Payment[]>;
+type PostPaymentFn = (payment: Payment, options?: BrantaApiOptions, signal?: AbortSignal) => Promise<Payment | undefined>;
+type IsApiKeyValidFn = (options?: BrantaApiOptions, signal?: AbortSignal) => Promise<boolean>;
 type EncryptFn = (value: string, secret: string, deterministicNonce?: boolean) => Promise<string>;
 type DecryptFn = (encryptedValue: string, secret: string) => Promise<string>;
 type GenerateFn = () => string;
@@ -110,7 +110,7 @@ describe('BrantaService', () => {
   let clientMock: ClientMock;
   let aesMock: AesMock;
   let secretMock: SecretMock;
-  let defaultOptions: BrantaClientOptions;
+  let defaultOptions: BrantaApiOptions;
   let service: BrantaService;
   let Bolt11Hash: string;
   let ArkHash: string;
@@ -125,8 +125,8 @@ describe('BrantaService', () => {
     aesMock = makeAesMock(Bolt11Hash, ArkHash);
     secretMock = makeSecretMock();
     defaultOptions = {
-      baseUrl: BrantaServerBaseUrl.Localhost,
-      defaultApiKey: 'test-api-key',
+      environment: BrantaEnvironment.Localhost,
+      apiKey: 'test-api-key',
     };
     service = new BrantaService(defaultOptions, {
       client: clientMock,
@@ -216,12 +216,12 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&lightning=${Bolt11Invoice}&ark=${ArkAddress}`;
       const { payments, verifyUrl } = expectMatch(await service.verify(qrText));
 
-      const zkId = payment.destinations[0]!.zkId!;
-      const bolt11ZkId = payment.destinations[1]!.zkId!;
-      const arkZkId = payment.destinations[2]!.zkId!;
+      const id = payment.destinations[0]!.id!;
+      const bolt11Id = payment.destinations[1]!.id!;
+      const arkId = payment.destinations[2]!.id!;
       expect(payments).toHaveLength(1);
       expect(verifyUrl).toBe(
-        `http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkId}=${Secret}&k-${bolt11ZkId}=${Bolt11Hash}&k-${arkZkId}=${ArkHash}`,
+        `http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${id}=${Secret}&k-${bolt11Id}=${Bolt11Hash}&k-${arkId}=${ArkHash}`,
       );
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
       expect(payments[0]!.destinations[1]!.value).toBe(DecryptedBolt11);
@@ -647,7 +647,7 @@ describe('BrantaService', () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedBitcoinAddress) return [payment];
@@ -656,14 +656,14 @@ describe('BrantaService', () => {
 
       const { verifyUrl } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkId}=${Secret}`);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${id}=${Secret}`);
     });
 
     test('verify_zkBolt11_setsVerifyUrlWithKeyFragment', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedBolt11) return [payment];
@@ -672,7 +672,7 @@ describe('BrantaService', () => {
 
       const { verifyUrl } = expectMatch(await service.verify(Bolt11Invoice));
 
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}#k-${zkId}=${Bolt11Hash}`);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}#k-${id}=${Bolt11Hash}`);
     });
 
     test('verify_bolt11NotFound_doesNotLookUpRawInvoice', async () => {
@@ -696,12 +696,12 @@ describe('BrantaService', () => {
   describe('addPayment', () => {
     test('addPayment_bitcoinAddressWithoutType_encryptsWithSecretAndSetsType', async () => {
       const payment = new PaymentBuilder().addDestination(BitcoinAddress).build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
@@ -714,12 +714,12 @@ describe('BrantaService', () => {
 
     test('addPayment_bolt11WithoutType_encryptsWithHash', async () => {
       const payment = new PaymentBuilder().addDestination(Bolt11Invoice).build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
@@ -733,12 +733,12 @@ describe('BrantaService', () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
@@ -753,12 +753,12 @@ describe('BrantaService', () => {
       const payment = new PaymentBuilder()
         .addDestination(Bolt11Invoice, DestinationType.Bolt11)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
@@ -772,12 +772,12 @@ describe('BrantaService', () => {
       const payment = new PaymentBuilder()
         .addDestination(ArkAddress, DestinationType.ArkAddress)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedArkAddress, DestinationType.ArkAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
@@ -791,18 +791,18 @@ describe('BrantaService', () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
       const { verifyUrl } = await service.addPayment(payment);
 
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkId}=${Secret}`);
+      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${id}=${Secret}`);
     });
 
     test('addPayment_returnsGeneratedSecret', async () => {
@@ -813,7 +813,7 @@ describe('BrantaService', () => {
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = payment.destinations[0]!.zkId!;
+      responsePayment.destinations[0]!.id = payment.destinations[0]!.id!;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
 
@@ -884,12 +884,12 @@ describe('BrantaService', () => {
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
         .build();
       payment.metadata = Metadata;
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
       secretMock.generate.mockReturnValueOnce(Dek).mockReturnValueOnce(Secret);
@@ -913,12 +913,12 @@ describe('BrantaService', () => {
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
         .build();
       payment.metadata = Metadata;
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
       secretMock.generate.mockReturnValueOnce(Dek).mockReturnValueOnce(Secret);
@@ -940,12 +940,12 @@ describe('BrantaService', () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      const zkId = payment.destinations[0]!.zkId!;
+      const id = payment.destinations[0]!.id!;
 
       const responsePayment = new PaymentBuilder()
         .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
         .build();
-      responsePayment.destinations[0]!.zkId = zkId;
+      responsePayment.destinations[0]!.id = id;
 
       clientMock.postPayment.mockResolvedValue(responsePayment);
       aesMock.encrypt.mockImplementation(async (value, key) => {

@@ -53,23 +53,23 @@ describe('PaymentBuilder', () => {
     expect(parsed['type']).toBeUndefined();
   });
 
-  test('addDestination_assignsZkId', () => {
+  test('addDestination_assignsId', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
       .build();
 
-    expect(payment.destinations[0]!.zkId).toBeDefined();
-    expect(payment.destinations[0]!.zkId!.length).toBeGreaterThan(0);
+    expect(payment.destinations[0]!.id).toBeDefined();
+    expect(payment.destinations[0]!.id!.length).toBeGreaterThan(0);
   });
 
-  test('addDestination_assignsZkIdOnEveryDestination', () => {
+  test('addDestination_assignsIdOnEveryDestination', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
       .addDestination(Bolt11Invoice, DestinationType.Bolt11)
       .build();
 
-    expect(payment.destinations[0]!.zkId).toBeDefined();
-    expect(payment.destinations[1]!.zkId).toBeDefined();
+    expect(payment.destinations[0]!.id).toBeDefined();
+    expect(payment.destinations[1]!.id).toBeDefined();
   });
 
   test('destinationToApi_alwaysSendsZkTrue', () => {
@@ -77,6 +77,7 @@ describe('PaymentBuilder', () => {
     const apiObject = destinationToApi(payment.destinations[0]!);
 
     expect(apiObject['zk']).toBe(true);
+    expect(apiObject['zk_id']).toBe(payment.destinations[0]!.id);
   });
 
   test('setDescription_setsDescription', () => {

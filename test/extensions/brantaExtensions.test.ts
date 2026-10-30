@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { BrantaServerBaseUrl } from '../../src/enums/brantaServerBaseUrl.js';
+import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
 import {
   getDerivedKeyType,
   getUrl,
@@ -14,15 +14,15 @@ import { DestinationType } from '../../src/enums/destinationType.js';
 
 describe('BrantaExtensions', () => {
   test('getUrl_localhost', () => {
-    expect(getUrl(BrantaServerBaseUrl.Localhost)).toBe('http://localhost:3000');
+    expect(getUrl(BrantaEnvironment.Localhost)).toBe('http://localhost:3000');
   });
 
   test('getUrl_production', () => {
-    expect(getUrl(BrantaServerBaseUrl.Production)).toBe('https://guardrail.branta.pro');
+    expect(getUrl(BrantaEnvironment.Production)).toBe('https://guardrail.branta.pro');
   });
 
   test('getUrl_staging', () => {
-    expect(getUrl(BrantaServerBaseUrl.Staging)).toBe('https://staging.guardrail.branta.pro');
+    expect(getUrl(BrantaEnvironment.Staging)).toBe('https://staging.guardrail.branta.pro');
   });
 
   // isBolt11
@@ -121,7 +121,7 @@ describe('BrantaExtensions', () => {
   // toUrlFragment
 
   test('toUrlFragment_formatsPairsWithKPrefix', () => {
-    expect(toUrlFragment({ zkId1: 'secret1' })).toBe('#k-zkId1=secret1');
+    expect(toUrlFragment({ id1: 'secret1' })).toBe('#k-id1=secret1');
   });
 
   test('toUrlFragment_joinsMultiplePairsWithAmpersand', () => {

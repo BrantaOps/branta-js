@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
+import { BrantaEnvironment } from '../../../src/enums/brantaEnvironment.js';
 import { VerifyStatus } from '../../../src/v2/models/verifyResult.js';
 import { BrantaService } from '../../../src/v2/services/brantaService.js';
 
@@ -16,15 +16,15 @@ const fetchLive: typeof fetch = (input, init) => {
   return fetch(input, { ...init, headers });
 };
 
-const makeService = (baseUrl: BrantaServerBaseUrl) =>
-  new BrantaService({ baseUrl, defaultApiKey: apiKey }, { fetchImpl: fetchLive });
+const makeService = (environment: BrantaEnvironment) =>
+  new BrantaService({ environment, apiKey: apiKey }, { fetchImpl: fetchLive });
 
 // Live lookups of the published example QR codes. Skipped unless
 // BRANTA_RUN_INTEGRATION=1 — local `npm test` and PR CI must not hit Guardrail.
 const describeLive = process.env.BRANTA_RUN_INTEGRATION === '1' ? describe : describe.skip;
 
 describeLive('Production', () => {
-  const service = makeService(BrantaServerBaseUrl.Production);
+  const service = makeService(BrantaEnvironment.Production);
 
   const onChain = 'bitcoin:bc1qu3k6geqdjncaarsu2vq56tt8php5vsug9kasmq';
   const lightning =
@@ -69,7 +69,7 @@ describeLive('Production', () => {
 });
 
 describeLive('Staging', () => {
-  const service = makeService(BrantaServerBaseUrl.Staging);
+  const service = makeService(BrantaEnvironment.Staging);
 
   const onChain = 'bitcoin:bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr';
   const lightning =

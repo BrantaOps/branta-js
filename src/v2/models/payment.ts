@@ -12,7 +12,6 @@ export interface Payment {
   platformLogoLightUrl?: string;
   parentPlatform?: Platform;
   childPlatform?: Platform;
-  btcPayServerPluginVersion?: string;
   isMetadataDecrypted?: boolean;
 }
 

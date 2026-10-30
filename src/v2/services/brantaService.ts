@@ -1,7 +1,7 @@
 import type { BrantaCryptoProvider } from '../../classes/brantaCryptoProvider.js';
 import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../../classes/aesEncryption.js';
 import { AesEncryptionService } from '../../classes/aesEncryptionService.js';
-import { BrantaClientOptions } from '../../classes/brantaClientOptions.js';
+import { BrantaApiOptions } from '../../classes/brantaApiOptions.js';
 import { DestinationType } from '../../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../exceptions/brantaPaymentException.js';
 import {
@@ -55,7 +55,7 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
 };
 
 export interface BrantaServiceOptions {
-  defaultOptions?: BrantaClientOptions;
+  defaultOptions?: BrantaApiOptions;
   client?: IBrantaClient;
   aesEncryption?: IAesEncryption;
   secretGenerator?: ISecretGenerator;
@@ -64,13 +64,13 @@ export interface BrantaServiceOptions {
 }
 
 export class BrantaService implements IBrantaService {
-  private readonly defaultOptions?: BrantaClientOptions;
+  private readonly defaultOptions?: BrantaApiOptions;
   private readonly client: IBrantaClient;
   private readonly aesEncryption: IAesEncryption;
   private readonly secretGenerator: ISecretGenerator;
   private readonly crypto?: BrantaCryptoProvider;
 
-  constructor(defaultOptions?: BrantaClientOptions, opts: BrantaServiceOptions = {}) {
+  constructor(defaultOptions?: BrantaApiOptions, opts: BrantaServiceOptions = {}) {
     const merged: BrantaServiceOptions = { ...opts };
     if (defaultOptions !== undefined && merged.defaultOptions === undefined) {
       merged.defaultOptions = defaultOptions;
@@ -86,7 +86,7 @@ export class BrantaService implements IBrantaService {
     return new PaymentBuilder(this.crypto);
   }
 
-  async verify(input: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<VerifyResult> {
+  async verify(input: string, options?: BrantaApiOptions, signal?: AbortSignal): Promise<VerifyResult> {
     const parser = new QRParser(input);
     const lookup = parser.onChainEncryptionText ?? parser.destination ?? '';
 
@@ -132,7 +132,7 @@ export class BrantaService implements IBrantaService {
     encryptionKey: string | undefined,
     additionalHashValues: string[],
     expectedOnChainAddress: string | undefined,
-    options: BrantaClientOptions | undefined,
+    options: BrantaApiOptions | undefined,
     signal: AbortSignal | undefined,
   ): Promise<{ payments: Payment[]; verifyUrl: string }> {
     const payments = await this.client.getPayments(lookupValue, options, signal);
@@ -173,8 +173,8 @@ export class BrantaService implements IBrantaService {
       try {
         destination.value = await this.aesEncryption.decrypt(destination.value, key);
         destination.isEncrypted = false;
-        if (destination.zkId !== undefined && !(destination.zkId in keys)) {
-          keys[destination.zkId] = key;
+        if (destination.id !== undefined && !(destination.id in keys)) {
+          keys[destination.id] = key;
         }
         await this.tryDecryptMetadata(payment, destination, key);
         bound = true;
@@ -193,7 +193,7 @@ export class BrantaService implements IBrantaService {
 
   private async lookupByDerivedKey(
     destinationValue: string,
-    options?: BrantaClientOptions,
+    options?: BrantaApiOptions,
     signal?: AbortSignal,
   ): Promise<{ payments: Payment[]; verifyUrl: string }> {
     const derivedType = getDerivedKeyType(destinationValue)!;
@@ -248,8 +248,8 @@ export class BrantaService implements IBrantaService {
         if (expectedOnChainAddress !== undefined) onChainBound = true;
         destination.value = decrypted;
         destination.isEncrypted = false;
-        if (destination.zkId !== undefined && !(destination.zkId in keys)) {
-          keys[destination.zkId] = encryptionKey;
+        if (destination.id !== undefined && !(destination.id in keys)) {
+          keys[destination.id] = encryptionKey;
         }
         await this.tryDecryptMetadata(payment, destination, encryptionKey);
       } else if (derivedType !== undefined && destination.type === derivedType) {
@@ -257,8 +257,8 @@ export class BrantaService implements IBrantaService {
         try {
           destination.value = await this.aesEncryption.decrypt(destination.value, key);
           destination.isEncrypted = false;
-          if (destination.zkId !== undefined && !(destination.zkId in keys)) {
-            keys[destination.zkId] = key;
+          if (destination.id !== undefined && !(destination.id in keys)) {
+            keys[destination.id] = key;
           }
           await this.tryDecryptMetadata(payment, destination, key);
         } catch {
@@ -282,7 +282,7 @@ export class BrantaService implements IBrantaService {
 
   async addPayment(
     payment: Payment,
-    options?: BrantaClientOptions,
+    options?: BrantaApiOptions,
     signal?: AbortSignal,
   ): Promise<{ payment: Payment; secret: string; verifyUrl: string }> {
     let dek: string | undefined;
@@ -295,8 +295,8 @@ export class BrantaService implements IBrantaService {
     const encryptedToKey: Record<string, string> = {};
 
     for (const destination of payment.destinations) {
-      if (destination.zkId === undefined) {
-        destination.zkId = (this.crypto ?? globalThis.crypto).randomUUID();
+      if (destination.id === undefined) {
+        destination.id = (this.crypto ?? globalThis.crypto).randomUUID();
       }
 
       const type = destination.type ?? detectDestinationType(destination.value);
@@ -330,8 +330,8 @@ export class BrantaService implements IBrantaService {
 
     const keys: Record<string, string> = {};
     for (const d of responsePayment.destinations) {
-      if (d.zkId !== undefined && d.value in encryptedToKey) {
-        keys[d.zkId] = encryptedToKey[d.value]!;
+      if (d.id !== undefined && d.value in encryptedToKey) {
+        keys[d.id] = encryptedToKey[d.value]!;
       }
     }
 
@@ -341,11 +341,11 @@ export class BrantaService implements IBrantaService {
     return { payment: responsePayment, secret, verifyUrl };
   }
 
-  isApiKeyValid(options?: BrantaClientOptions, signal?: AbortSignal): Promise<boolean> {
+  isApiKeyValid(options?: BrantaApiOptions, signal?: AbortSignal): Promise<boolean> {
     return this.client.isApiKeyValid(options, signal);
   }
 
-  private buildVerifyUrl(options: BrantaClientOptions | undefined, paymentLookup: string, keys?: Record<string, string>): string {
+  private buildVerifyUrl(options: BrantaApiOptions | undefined, paymentLookup: string, keys?: Record<string, string>): string {
     const baseUrl = getBaseUrl(this.defaultOptions, options);
     let url = `${baseUrl}/v2/verify/${encodeURIComponent(paymentLookup)}`;
     if (keys && Object.keys(keys).length > 0) {

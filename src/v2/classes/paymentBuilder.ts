@@ -8,10 +8,10 @@ export class PaymentBuilder {
 
   constructor(private readonly crypto?: Pick<BrantaCryptoProvider, 'randomUUID'>) {}
 
-  addDestination(address: string, type?: DestinationType): this {
+  addDestination(value: string, type?: DestinationType): this {
     const destination: Destination = {
-      value: address,
-      zkId: (this.crypto ?? globalThis.crypto).randomUUID(),
+      value,
+      id: (this.crypto ?? globalThis.crypto).randomUUID(),
     };
     if (type !== undefined) destination.type = type;
     this.payment.destinations.push(destination);

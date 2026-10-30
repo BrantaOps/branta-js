@@ -11,7 +11,7 @@ export const destinationToApi = (destination: Destination): Record<string, unkno
     zk: true,
   };
   if (destination.type !== undefined) result['type'] = destination.type;
-  if (destination.zkId !== undefined) result['zk_id'] = destination.zkId;
+  if (destination.id !== undefined) result['zk_id'] = destination.id;
   if (destination.encryptedDek !== undefined) result['encrypted_dek'] = destination.encryptedDek;
   return result;
 };
@@ -29,7 +29,7 @@ export const destinationFromApi = (raw: Record<string, unknown>): Destination =>
     destination.type = raw['type'] as DestinationType;
   }
   if (raw['zk_id'] !== undefined && raw['zk_id'] !== null) {
-    destination.zkId = String(raw['zk_id']);
+    destination.id = String(raw['zk_id']);
   }
   if (raw['encrypted_dek'] !== undefined && raw['encrypted_dek'] !== null) {
     destination.encryptedDek = String(raw['encrypted_dek']);
@@ -54,9 +54,6 @@ export const paymentToApi = (payment: Payment): Record<string, unknown> => {
     if (payment.childPlatform.logoUrl !== undefined) cp['logo_url'] = payment.childPlatform.logoUrl;
     if (payment.childPlatform.logoLightUrl !== undefined) cp['logo_light_url'] = payment.childPlatform.logoLightUrl;
     result['child_platform'] = cp;
-  }
-  if (payment.btcPayServerPluginVersion !== undefined) {
-    result['btc_pay_server_plugin_version'] = payment.btcPayServerPluginVersion;
   }
   return result;
 };
@@ -96,9 +93,6 @@ export const paymentFromApi = (raw: Record<string, unknown>): Payment => {
       childPlatform.logoLightUrl = String(cp['logo_light_url']);
     }
     payment.childPlatform = childPlatform;
-  }
-  if (raw['btc_pay_server_plugin_version'] !== undefined && raw['btc_pay_server_plugin_version'] !== null) {
-    payment.btcPayServerPluginVersion = String(raw['btc_pay_server_plugin_version']);
   }
   return payment;
 };
