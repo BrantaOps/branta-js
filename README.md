@@ -29,14 +29,15 @@ If they are on the receive side, ask one follow-up:
 
 General (all types):
 - Use `BrantaService`. Do not call Guardrail HTTP yourself.
-- Never show an error or "not verified" message when a lookup returns empty or throws. An empty result means the destination is unknown to Branta, not that it is malicious. Show nothing.
+- Switch on `result.status`. Do not infer outcome from `payments` or from thrown errors.
 - For `baseUrl`: use `BrantaServerBaseUrl.Production` only in production environments. Use `BrantaServerBaseUrl.Staging` everywhere else — including local development, CI, and staging/test environments.
 - If serving over HTTP or running in React Native / Expo, pass a `crypto` option to `BrantaService` (see step 2) and always use `service.createPaymentBuilder()` rather than `new PaymentBuilder()`.
 
 Send side (wallets):
 - Call `verify` with the scanned QR text or the pasted destination. One method handles both.
-- If `result.payments` is empty or an exception is thrown, render nothing.
-- When `result.payments` is non-empty, display: the platform logo, the platform name (`payment.platform`), and the payment description (`payment.description`). Only render description when non-empty. Make the verification card a clickable link to `result.verifyUrl` — do not display the raw URL.
+- `match` — show the card: platform logo, platform name (`payment.platform`), and description when non-empty. Link the card to `result.verifyUrl`; do not display the raw URL.
+- `unknown` — not in Branta. Show nothing. Do not say “not verified.”
+- `tampered` — the destination was altered. Warn. Do not show a verified card. Do not block the send unless your product chooses to.
 - For the platform logo: on dark backgrounds use `payment.platformLogoUrl`. On light backgrounds prefer `payment.platformLogoLightUrl` when available, falling back to `payment.platformLogoUrl`.
 - Optionally display `payment.parentPlatform?.logoUrl` / `payment.parentPlatform?.logoLightUrl` as a small secondary badge (e.g. corner icon). This is not required.
 
@@ -56,9 +57,7 @@ Receive side (parent platforms — shared key), in addition to the platform rule
 
 ## For Wallets
 
-Pass the scanned QR text or the pasted destination to `verify`. bolt11, Ark, and Silent Payments resolve from the value. On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret` (that is how platforms encode a Branta invoice). A bare address returns empty.
-
-Always catch errors and show nothing on not-found — a missing record just means the address was not posted to Branta.
+Pass the scanned QR text or the pasted destination to `verify`. bolt11, Ark, and Silent Payments resolve from the value. On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret` (that is how platforms encode a Branta invoice). A bare address is `unknown`.
 
 ```ts
 import { BrantaServerBaseUrl, BrantaService } from "@branta-ops/branta";
@@ -71,14 +70,19 @@ async function lookup(input: string) {
   try {
     const result = await service.verify(input);
 
-    if (result.payments.length === 0) {
-      // Not found — show nothing. The address may simply not exist in Branta.
-      return;
+    switch (result.status) {
+      case "match":
+        // Show the card for result.payments. Link it to result.verifyUrl.
+        return;
+      case "unknown":
+        // Not in Branta — show nothing.
+        return;
+      case "tampered":
+        // Destination was altered. Warn. Do not show a verified card.
+        return;
     }
-
-    // Render result.payments and result.verifyUrl
   } catch {
-    // Swallow errors — never surface a "not found" or lookup failure to the user.
+    // Environment or network failure — show nothing.
   }
 }
 ```

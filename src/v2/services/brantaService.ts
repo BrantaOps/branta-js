@@ -19,11 +19,20 @@ import { IBrantaService } from '../interfaces/iBrantaService.js';
 import { ISecretGenerator } from '../interfaces/iSecretGenerator.js';
 import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
-import { PaymentsResult } from '../models/paymentsResult.js';
+import { VerifyResult, VerifyStatus } from '../models/verifyResult.js';
 import { BrantaClient } from './brantaClient.js';
 
-const TAMPERED_MESSAGE =
-  'The Bitcoin address does not match the address verified by Branta. The destination may have been tampered with.';
+class TamperedError extends Error {
+  constructor() {
+    super();
+    this.name = 'TamperedError';
+  }
+}
+
+const toVerifyResult = (payments: Payment[], verifyUrl: string): VerifyResult =>
+  payments.length === 0
+    ? { status: VerifyStatus.Unknown, verifyUrl }
+    : { status: VerifyStatus.Match, payments, verifyUrl };
 
 const addressesMatch = (a: string, b: string): boolean => {
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
@@ -39,7 +48,7 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   const first = addresses[0]!;
   for (const address of addresses.slice(1)) {
     if (!addressesMatch(first, address)) {
-      throw new BrantaPaymentException(TAMPERED_MESSAGE, BrantaPaymentExceptionReason.Tampered);
+      throw new TamperedError();
     }
   }
   return first;
@@ -77,35 +86,45 @@ export class BrantaService implements IBrantaService {
     return new PaymentBuilder(this.crypto);
   }
 
-  async verify(input: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<PaymentsResult> {
+  async verify(input: string, options?: BrantaClientOptions, signal?: AbortSignal): Promise<VerifyResult> {
     const parser = new QRParser(input);
-    const expectedOnChainAddress = uniformOnChainAddress(parser);
+    const lookup = parser.onChainEncryptionText ?? parser.destination ?? '';
 
-    if (parser.hasUnverifiableInstruction) {
-      const lookup = parser.onChainEncryptionText ?? parser.destination ?? '';
-      return { payments: [], verifyUrl: this.buildVerifyUrl(options, lookup) };
+    try {
+      const expectedOnChainAddress = uniformOnChainAddress(parser);
+
+      if (parser.hasUnverifiableInstruction) {
+        return { status: VerifyStatus.Unknown, verifyUrl: this.buildVerifyUrl(options, lookup) };
+      }
+
+      if (parser.hasBrantaParams()) {
+        const additionalValues = parser.destinations
+          .filter((d) => getDerivedKeyType(d.value) !== undefined)
+          .map((d) => d.value);
+        const { payments, verifyUrl } = await this.lookupByBrantaId(
+          parser.onChainEncryptionText!,
+          parser.onChainEncryptionSecret,
+          additionalValues,
+          expectedOnChainAddress,
+          options,
+          signal,
+        );
+        return toVerifyResult(payments, verifyUrl);
+      }
+
+      const destination = parser.destination!;
+      if (getDerivedKeyType(destination) === undefined) {
+        return { status: VerifyStatus.Unknown, verifyUrl: this.buildVerifyUrl(options, destination) };
+      }
+
+      const { payments, verifyUrl } = await this.lookupByDerivedKey(destination, options, signal);
+      return toVerifyResult(payments, verifyUrl);
+    } catch (err) {
+      if (err instanceof TamperedError) {
+        return { status: VerifyStatus.Tampered, verifyUrl: this.buildVerifyUrl(options, lookup) };
+      }
+      throw err;
     }
-
-    if (parser.hasBrantaParams()) {
-      const additionalValues = parser.destinations
-        .filter((d) => getDerivedKeyType(d.value) !== undefined)
-        .map((d) => d.value);
-      return this.lookupByBrantaId(
-        parser.onChainEncryptionText!,
-        parser.onChainEncryptionSecret,
-        additionalValues,
-        expectedOnChainAddress,
-        options,
-        signal,
-      );
-    }
-
-    const destination = parser.destination!;
-    if (getDerivedKeyType(destination) === undefined) {
-      return { payments: [], verifyUrl: this.buildVerifyUrl(options, destination) };
-    }
-
-    return this.lookupByDerivedKey(destination, options, signal);
   }
 
   private async lookupByBrantaId(
@@ -115,7 +134,7 @@ export class BrantaService implements IBrantaService {
     expectedOnChainAddress: string | undefined,
     options: BrantaClientOptions | undefined,
     signal: AbortSignal | undefined,
-  ): Promise<PaymentsResult> {
+  ): Promise<{ payments: Payment[]; verifyUrl: string }> {
     const payments = await this.client.getPayments(lookupValue, options, signal);
 
     const keys: Record<string, string> = {};
@@ -176,7 +195,7 @@ export class BrantaService implements IBrantaService {
     destinationValue: string,
     options?: BrantaClientOptions,
     signal?: AbortSignal,
-  ): Promise<PaymentsResult> {
+  ): Promise<{ payments: Payment[]; verifyUrl: string }> {
     const derivedType = getDerivedKeyType(destinationValue)!;
     const normalizedDestination = destinationValue.toLowerCase();
     const lookupValue = await this.aesEncryption.encrypt(
@@ -224,7 +243,7 @@ export class BrantaService implements IBrantaService {
           continue;
         }
         if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
-          throw new BrantaPaymentException(TAMPERED_MESSAGE, BrantaPaymentExceptionReason.Tampered);
+          throw new TamperedError();
         }
         if (expectedOnChainAddress !== undefined) onChainBound = true;
         destination.value = decrypted;

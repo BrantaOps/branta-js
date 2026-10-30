@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
 import { BrantaServerBaseUrl } from '../../../src/enums/brantaServerBaseUrl.js';
+import { VerifyStatus } from '../../../src/v2/models/verifyResult.js';
 import { BrantaService } from '../../../src/v2/services/brantaService.js';
 
 const apiKey = process.env.BRANTA_API_KEY;
@@ -38,32 +39,32 @@ describeLive('Production', () => {
 
   test('on-chain address returns empty', async () => {
     const result = await service.verify(onChain);
-    expect(result.payments).toHaveLength(0);
+    expect(result.status).toBe(VerifyStatus.Unknown);
   }, 15000);
 
   test('lightning returns payment', async () => {
     const result = await service.verify(lightning);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('branta on-chain returns payment', async () => {
     const result = await service.verify(brantaOnChain);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('branta lightning returns payment', async () => {
     const result = await service.verify(brantaLightning);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('branta unified returns payment', async () => {
     const result = await service.verify(brantaUnified);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('not found returns empty', async () => {
     const result = await service.verify(notFound);
-    expect(result.payments).toHaveLength(0);
+    expect(result.status).toBe(VerifyStatus.Unknown);
   }, 15000);
 });
 
@@ -83,31 +84,31 @@ describeLive('Staging', () => {
 
   test('on-chain address returns empty', async () => {
     const result = await service.verify(onChain);
-    expect(result.payments).toHaveLength(0);
+    expect(result.status).toBe(VerifyStatus.Unknown);
   }, 15000);
 
   test('lightning returns payment', async () => {
     const result = await service.verify(lightning);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('branta on-chain returns payment', async () => {
     const result = await service.verify(brantaOnChain);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('branta lightning returns payment', async () => {
     const result = await service.verify(brantaLightning);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('branta unified returns payment', async () => {
     const result = await service.verify(brantaUnified);
-    expect(result.payments.length).toBeGreaterThan(0);
+    expect(result.status).toBe(VerifyStatus.Match);
   }, 15000);
 
   test('not found returns empty', async () => {
     const result = await service.verify(notFound);
-    expect(result.payments).toHaveLength(0);
+    expect(result.status).toBe(VerifyStatus.Unknown);
   }, 15000);
 });

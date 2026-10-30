@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **BREAKING:** `PaymentBuilder.setZk()` and `Destination.isZk`.
 - **BREAKING:** `getPayments` and `getPaymentsByQrCode`. Wallets call `verify(input)` for both QR scan and clipboard paste.
 - **BREAKING:** The `@branta-ops/branta/v2` subpath. Import from `@branta-ops/branta`. `BrantaClient`, `QRParser`, `AesEncryption`, `AesEncryptionService`, `GuidSecretGenerator`, `getDefaultValue`, and the `IBranta*` / `IAesEncryption` / `ISecretGenerator` types are no longer exported.
+- **BREAKING:** `verify()` returns `{ status, verifyUrl }` with `status` of `match`, `unknown`, or `tampered`. A swapped address is `tampered`, not a thrown exception. `payments` is present only on `match`. `PaymentsResult` and `BrantaPaymentExceptionReason.Tampered` are gone.
 
 ### Changed
 - A bolt11 / Ark / silent-payment miss no longer retries the raw string.

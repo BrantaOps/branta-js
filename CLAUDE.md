@@ -20,11 +20,12 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 - Release: `npm login`, `npm version major|minor|patch`, `npm publish`. `prepublishOnly` rebuilds.
 
 ## Key behaviors to preserve when editing the SDK
-- **Unencrypted destinations are not supported.** `verify` is the only lookup: QR scan and clipboard paste use the same call. A raw on-chain address (including testnet `tb1` / `bcrt1`) returns an empty `PaymentsResult` with a populated `verifyUrl` and does not GET. `addPayment` encrypts every destination; types that cannot be encrypted throw.
-- **`verifyUrl` is always returned**, even on a miss. Format: `{baseUrl}/v2/verify/{lookup}` plus a URL fragment built from per-destination encryption keys.
+- **Unencrypted destinations are not supported.** `verify` is the only lookup: QR scan and clipboard paste use the same call. A raw on-chain address (including testnet `tb1` / `bcrt1`) is `unknown` and does not GET. `addPayment` encrypts every destination; types that cannot be encrypted throw.
+- **`verify()` returns `VerifyResult`.** `match` includes `payments` and `verifyUrl`. `unknown` and `tampered` include only `verifyUrl`. Do not throw for a swapped address. `CryptoUnavailable` still throws.
+- **`verifyUrl` is always returned.** Format: `{baseUrl}/v2/verify/{lookup}` plus a URL fragment built from per-destination encryption keys on `match`.
 - **Encryption.** Bitcoin addresses are encrypted with a caller-supplied secret (random UUID via `GuidSecretGenerator`); bolt11, Ark, and silent payments are encrypted with a key derived from a normalized hash of the value, so the same input always produces the same lookup token. `addPayment` mutates `payment.destinations[*].value` to the encrypted form before POSTing. Guardrail still receives `zk: true` and `zk_id` on each destination.
 - **`verify` parses first.** Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
-- **Never surface lookup failures to the user.** README documents the consumer contract: swallow errors and treat empty `payments` as "show nothing."
+- **Never surface `unknown` or thrown errors to the user.** `tampered` is the exception: warn, do not show a verified card.
 
 ## Conventions
 - ESM-only (`"type": "module"` in `package.json`). Local imports must use `.js` extensions even from `.ts` files; Jest's `moduleNameMapper` strips them at test time.

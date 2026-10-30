@@ -11,7 +11,22 @@ import { IAesEncryption } from '../../../src/v2/interfaces/iAesEncryption.js';
 import { IBrantaClient } from '../../../src/v2/interfaces/iBrantaClient.js';
 import { ISecretGenerator } from '../../../src/v2/interfaces/iSecretGenerator.js';
 import { Payment } from '../../../src/v2/models/payment.js';
+import { VerifyResult, VerifyStatus } from '../../../src/v2/models/verifyResult.js';
 import { BrantaService } from '../../../src/v2/services/brantaService.js';
+
+const expectMatch = (result: VerifyResult): Extract<VerifyResult, { status: 'match' }> => {
+  expect(result.status).toBe(VerifyStatus.Match);
+  if (result.status !== VerifyStatus.Match) throw new Error('expected match');
+  return result;
+};
+
+const expectUnknown = (result: VerifyResult): void => {
+  expect(result.status).toBe(VerifyStatus.Unknown);
+};
+
+const expectTampered = (result: VerifyResult): void => {
+  expect(result.status).toBe(VerifyStatus.Tampered);
+};
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const EncryptedBitcoinAddress = 'encrypted-bitcoin-address';
@@ -130,17 +145,17 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const { payments } = await service.verify(qrText);
+      const { payments } = expectMatch(await service.verify(qrText));
 
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBitcoinAddress, undefined, undefined);
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
     });
 
     test('verify_bareBitcoinUri_returnsEmptyList', async () => {
-      const { payments, verifyUrl } = await service.verify(`bitcoin:${BitcoinAddress}`);
+      const result = await service.verify(`bitcoin:${BitcoinAddress}`);
 
-      expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${BitcoinAddress}`);
+      expectUnknown(result);
+      expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${BitcoinAddress}`);
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
@@ -177,7 +192,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { payments } = await service.verify(`lightning:${Bolt11Invoice}`);
+      const { payments } = expectMatch(await service.verify(`lightning:${Bolt11Invoice}`));
 
       expect(payments).toHaveLength(1);
       expect(payments[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
@@ -199,7 +214,7 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&lightning=${Bolt11Invoice}&ark=${ArkAddress}`;
-      const { payments, verifyUrl } = await service.verify(qrText);
+      const { payments, verifyUrl } = expectMatch(await service.verify(qrText));
 
       const zkId = payment.destinations[0]!.zkId!;
       const bolt11ZkId = payment.destinations[1]!.zkId!;
@@ -237,10 +252,7 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:${SwappedBitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const promise = service.verify(qrText);
-
-      await expect(promise).rejects.toThrow(BrantaPaymentException);
-      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expectTampered(await service.verify(qrText));
     });
 
     test.each([
@@ -255,10 +267,7 @@ describe('BrantaService', () => {
       });
 
       const qrText = `${uri}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const promise = service.verify(qrText);
-
-      await expect(promise).rejects.toThrow(BrantaPaymentException);
-      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expectTampered(await service.verify(qrText));
     });
 
     test('verify_bitcoinBrantaUri_matchingAddress_doesNotThrow', async () => {
@@ -270,6 +279,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
 
       await expect(service.verify(qrText)).resolves.toMatchObject({
+        status: VerifyStatus.Match,
         payments: [{ destinations: [{ value: BitcoinAddress }] }],
       });
     });
@@ -287,6 +297,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${UppercaseBech32Qr}?branta_id=${EncryptedBech32Address}&branta_secret=${Secret}`;
 
       await expect(service.verify(qrText)).resolves.toMatchObject({
+        status: VerifyStatus.Match,
         payments: [{ destinations: [{ value: RegisteredBech32Address }] }],
       });
     });
@@ -303,10 +314,7 @@ describe('BrantaService', () => {
 
       // Base58 is case-sensitive: a lowercased QR address must NOT be treated as a match.
       const qrText = `bitcoin:${BaseAddressLower}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const promise = service.verify(qrText);
-
-      await expect(promise).rejects.toThrow(BrantaPaymentException);
-      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expectTampered(await service.verify(qrText));
     });
 
     test('verify_lightningQrWithBrantaParams_noOnChainAddress_decryptsWithoutComparison', async () => {
@@ -328,6 +336,7 @@ describe('BrantaService', () => {
       const qrText = `lightning:${Bolt11Invoice}?branta_id=${EncryptedBolt11}&branta_secret=${Secret}`;
 
       await expect(service.verify(qrText)).resolves.toMatchObject({
+        status: VerifyStatus.Match,
         payments: [
           {
             destinations: [{ value: DecryptedBolt11 }, { value: BitcoinAddress, isEncrypted: false }],
@@ -349,10 +358,7 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:${SwappedBitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&lightning=${Bolt11Invoice}&ark=${ArkAddress}`;
-      const promise = service.verify(qrText);
-
-      await expect(promise).rejects.toThrow(BrantaPaymentException);
-      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expectTampered(await service.verify(qrText));
     });
 
     test('verify_swappedAddressAndWrongSecret_returnsNoPayments', async () => {
@@ -367,7 +373,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${SwappedBitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=00000000-0000-4000-8000-000000000000`;
       const result = await service.verify(qrText);
 
-      expect(result.payments).toHaveLength(0);
+      expectUnknown(result);
     });
 
     test('verify_attackerLightningLeg_returnsNoPayments', async () => {
@@ -379,7 +385,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&lightning=lnbc1attacker`;
       const result = await service.verify(qrText);
 
-      expect(result.payments).toHaveLength(0);
+      expectUnknown(result);
     });
 
     test('verify_attackerArkLeg_returnsNoPayments', async () => {
@@ -391,7 +397,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}&ark=ark1attacker`;
       const result = await service.verify(qrText);
 
-      expect(result.payments).toHaveLength(0);
+      expectUnknown(result);
     });
 
     test('verify_bip321BcSwap_rejects', async () => {
@@ -401,10 +407,7 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:?bc=${SwappedBitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const promise = service.verify(qrText);
-
-      await expect(promise).rejects.toThrow(BrantaPaymentException);
-      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expectTampered(await service.verify(qrText));
     });
 
     test('verify_bip321BcMatch_resolves', async () => {
@@ -416,15 +419,14 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:?bc=${BitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
 
       await expect(service.verify(qrText)).resolves.toMatchObject({
+        status: VerifyStatus.Match,
         payments: [{ destinations: [{ value: BitcoinAddress, isEncrypted: false }] }],
       });
     });
 
     test('verify_pathAndBcDisagree_rejectsBeforeLookup', async () => {
       const qrText = `bitcoin:${BitcoinAddress}?bc=${SwappedBitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
-      const promise = service.verify(qrText);
-
-      await expect(promise).rejects.toMatchObject({ reason: BrantaPaymentExceptionReason.Tampered });
+      expectTampered(await service.verify(qrText));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
@@ -432,7 +434,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?pay=bitcoin:${SwappedBitcoinAddress}&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
       const result = await service.verify(qrText);
 
-      expect(result.payments).toHaveLength(0);
+      expectUnknown(result);
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
@@ -440,7 +442,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?lno=lno1qqattacker&branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
       const result = await service.verify(qrText);
 
-      expect(result.payments).toHaveLength(0);
+      expectUnknown(result);
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
@@ -454,10 +456,10 @@ describe('BrantaService', () => {
       });
 
       const qrText = `bitcoin:?branta_id=${EncryptedBitcoinAddress}&branta_secret=00000000-0000-4000-8000-000000000000`;
-      const result = await service.verify(qrText);
+      const { payments } = expectMatch(await service.verify(qrText));
 
-      expect(result.payments).toHaveLength(1);
-      expect(result.payments[0]!.destinations[0]).toMatchObject({
+      expect(payments).toHaveLength(1);
+      expect(payments[0]!.destinations[0]).toMatchObject({
         value: EncryptedBitcoinAddress,
         isEncrypted: true,
       });
@@ -515,7 +517,7 @@ describe('BrantaService', () => {
       const qrText = `bitcoin:${BitcoinAddress}?branta_id=${EncryptedBitcoinAddress}&branta_secret=${Secret}`;
       const result = await service.verify(qrText);
 
-      expect(result.payments).toHaveLength(0);
+      expectUnknown(result);
     });
   });
 
@@ -523,39 +525,35 @@ describe('BrantaService', () => {
 
   describe('verify paste', () => {
     test('verify_bareBitcoinAddress_returnsEmpty', async () => {
-      const { payments } = await service.verify(BitcoinAddress);
-      expect(payments).toHaveLength(0);
+      expectUnknown(await service.verify(BitcoinAddress));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test.each(['tb1qtestaddress', 'bcrt1qtestaddress'])(
       'verify_testnetBech32_%s_returnsEmpty',
       async (address) => {
-        const { payments } = await service.verify(address);
-        expect(payments).toHaveLength(0);
+        expectUnknown(await service.verify(address));
         expect(clientMock.getPayments).not.toHaveBeenCalled();
       },
     );
 
     test('verify_unknownValue_returnsEmpty', async () => {
-      const { payments } = await service.verify('not-a-bolt11-value');
-      expect(payments).toHaveLength(0);
+      expectUnknown(await service.verify('not-a-bolt11-value'));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('verify_lookupTokenWithoutUri_returnsEmpty', async () => {
-      const { payments } = await service.verify(EncryptedBitcoinAddress);
-      expect(payments).toHaveLength(0);
+      expectUnknown(await service.verify(EncryptedBitcoinAddress));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('verify_shouldReturnEmptyList_whenClientReturnsEmpty', async () => {
       clientMock.getPayments.mockResolvedValue([]);
 
-      const { payments, verifyUrl } = await service.verify(brantaBitcoinLookup());
+      const result = await service.verify(brantaBitcoinLookup());
 
-      expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}`);
+      expectUnknown(result);
+      expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}`);
     });
 
     test('verify_shouldForwardOptions_toClient', async () => {
@@ -578,7 +576,7 @@ describe('BrantaService', () => {
     test('verify_bitcoinBrantaUri_decryptsDestinationValue', async () => {
       clientMock.getPayments.mockResolvedValue([encryptedBitcoinPayment()]);
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments).toHaveLength(1);
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
@@ -591,7 +589,7 @@ describe('BrantaService', () => {
         throw new Error('Decryption failed: auth tag mismatch');
       });
 
-      const { payments } = await service.verify(brantaBitcoinLookup('wrong-key'));
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup('wrong-key')));
 
       expect(payments).toHaveLength(1);
       expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
@@ -601,7 +599,7 @@ describe('BrantaService', () => {
     test('verify_unencryptedDestination_doesNotDecrypt', async () => {
       clientMock.getPayments.mockResolvedValue([plainBitcoinPayment()]);
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
       expect(aesMock.decrypt).not.toHaveBeenCalled();
@@ -613,7 +611,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { payments } = await service.verify(Bolt11Invoice);
+      const { payments } = expectMatch(await service.verify(Bolt11Invoice));
 
       expect(payments).toHaveLength(1);
       expect(payments[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
@@ -627,7 +625,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { payments } = await service.verify(Bolt11Invoice);
+      const { payments } = expectMatch(await service.verify(Bolt11Invoice));
 
       expect(payments[0]!.destinations[0]!.value).toBe(Bolt11Invoice);
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
@@ -640,7 +638,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { verifyUrl } = await service.verify(Bolt11Invoice);
+      const { verifyUrl } = expectMatch(await service.verify(Bolt11Invoice));
 
       expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
     });
@@ -656,7 +654,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { verifyUrl } = await service.verify(brantaBitcoinLookup());
+      const { verifyUrl } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${zkId}=${Secret}`);
     });
@@ -672,7 +670,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { verifyUrl } = await service.verify(Bolt11Invoice);
+      const { verifyUrl } = expectMatch(await service.verify(Bolt11Invoice));
 
       expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}#k-${zkId}=${Bolt11Hash}`);
     });
@@ -684,10 +682,10 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { payments, verifyUrl } = await service.verify(Bolt11Invoice);
+      const result = await service.verify(Bolt11Invoice);
 
-      expect(payments).toHaveLength(0);
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
+      expectUnknown(result);
+      expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
       expect(clientMock.getPayments).not.toHaveBeenCalledWith(Bolt11Invoice, undefined, undefined);
     });
@@ -977,7 +975,7 @@ describe('BrantaService', () => {
         throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
       });
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments[0]!.metadata).toBe(Metadata);
       expect(payments[0]!.isMetadataDecrypted).toBe(true);
@@ -1000,7 +998,7 @@ describe('BrantaService', () => {
         throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
       });
 
-      const { payments } = await service.verify(Bolt11Invoice);
+      const { payments } = expectMatch(await service.verify(Bolt11Invoice));
 
       expect(payments[0]!.metadata).toBe(Metadata);
       expect(payments[0]!.isMetadataDecrypted).toBe(true);
@@ -1018,7 +1016,7 @@ describe('BrantaService', () => {
         throw new Error('Decryption failed: auth tag mismatch');
       });
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments[0]!.metadata).toBe(EncryptedMetadata);
       expect(payments[0]!.isMetadataDecrypted).toBeFalsy();
@@ -1043,7 +1041,7 @@ describe('BrantaService', () => {
         throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
       });
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments[0]!.metadata).toBe(Metadata);
       expect(metadataDecryptCount).toBe(1);
@@ -1061,7 +1059,7 @@ describe('BrantaService', () => {
         throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
       });
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments[0]!.metadata).toBe(EncryptedMetadata);
     });
@@ -1077,7 +1075,7 @@ describe('BrantaService', () => {
         throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
       });
 
-      const { payments } = await service.verify(brantaBitcoinLookup());
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
 
       expect(payments[0]!.metadata).toBeUndefined();
     });
