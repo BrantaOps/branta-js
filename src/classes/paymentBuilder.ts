@@ -32,6 +32,7 @@ export class PaymentBuilder {
     return this;
   }
 
+  /** Time to live in seconds. */
   setTtl(ttl: number): this {
     this.payment.ttl = ttl;
     return this;

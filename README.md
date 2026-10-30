@@ -102,7 +102,7 @@ const service = new BrantaService({
 const payment = new PaymentBuilder()
   .setDescription("Testing description")
   .addDestination("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "bitcoin_address")
-  .setTtl(600)
+  .setTtl(600) // seconds
   .build();
 
 const { payment: response, secret, verifyUrl } = await service.addPayment(payment);
