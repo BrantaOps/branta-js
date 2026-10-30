@@ -62,7 +62,7 @@ const payment = new PaymentBuilder()
 const { secret, verifyUrl } = await service.addPayment(payment);
 ```
 
-Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the wallet QR.
+Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR.
 
 ## Crypto
 
