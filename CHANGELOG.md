@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 - `verify()` throws on a 5xx from Guardrail instead of returning `unknown`. A 404 is still `unknown`.
+- 5xx and transport failures set `reason: could_not_check`. The HTTP status text stays on the message for logs.
 
 ## [4.0.0] - 2026-10-29
 

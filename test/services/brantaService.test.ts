@@ -554,9 +554,13 @@ describe('BrantaService', () => {
     });
 
     test('verify_shouldThrow_whenClientThrows5xx', async () => {
-      clientMock.getPayments.mockRejectedValue(new BrantaPaymentException('InternalServerError'));
+      clientMock.getPayments.mockRejectedValue(
+        new BrantaPaymentException('InternalServerError', BrantaPaymentExceptionReason.CouldNotCheck),
+      );
 
-      await expect(service.verify(brantaBitcoinLookup())).rejects.toThrow('InternalServerError');
+      await expect(service.verify(brantaBitcoinLookup())).rejects.toMatchObject({
+        reason: BrantaPaymentExceptionReason.CouldNotCheck,
+      });
     });
 
     test('verify_shouldForwardOptions_toClient', async () => {

@@ -2,7 +2,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 
 import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
-import { BrantaPaymentException } from '../../src/exceptions/brantaPaymentException.js';
+import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../src/exceptions/brantaPaymentException.js';
 import { BrantaClient } from '../../src/services/brantaClient.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
@@ -11,6 +11,7 @@ const OtherOrigin = 'https://attacker.example';
 
 const options: BrantaApiOptions = {
   environment: BrantaEnvironment.Localhost,
+  apiKey: 'test-key',
 };
 
 const destinations = [{ value: 'test-destination' }];
@@ -112,10 +113,61 @@ describe('BrantaClient.getPayments HTTP errors', () => {
     [502, 'BadGateway'],
     [503, 'ServiceUnavailable'],
     [504, 'GatewayTimeout'],
-  ])('%s throws %s', async (status, message) => {
+  ])('%s throws could_not_check with message %s', async (status, message) => {
     const client = clientWithStatus(status);
 
-    await expect(client.getPayments('value')).rejects.toThrow(BrantaPaymentException);
-    await expect(client.getPayments('value')).rejects.toThrow(message);
+    await expect(client.getPayments('value')).rejects.toMatchObject({
+      name: 'BrantaPaymentException',
+      message,
+      reason: BrantaPaymentExceptionReason.CouldNotCheck,
+    });
+  });
+
+  test('network failure throws could_not_check', async () => {
+    const fakeFetch = jest.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch);
+
+    await expect(client.getPayments('value')).rejects.toMatchObject({
+      name: 'BrantaPaymentException',
+      message: 'Failed to fetch',
+      reason: BrantaPaymentExceptionReason.CouldNotCheck,
+    });
+  });
+
+  test('AbortError is not wrapped as could_not_check', async () => {
+    const abort = new Error('aborted');
+    abort.name = 'AbortError';
+    const fakeFetch = jest.fn(async () => {
+      throw abort;
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch);
+
+    await expect(client.getPayments('value')).rejects.toBe(abort);
+  });
+});
+
+describe('BrantaClient.postPayment HTTP errors', () => {
+  const payment = { destinations: [{ value: 'test-destination' }] };
+
+  test('401 throws without could_not_check', async () => {
+    const client = clientWithStatus(401);
+
+    await expect(client.postPayment(payment)).rejects.toMatchObject({
+      name: 'BrantaPaymentException',
+      message: 'Unauthorized',
+      reason: undefined,
+    });
+  });
+
+  test('500 throws could_not_check', async () => {
+    const client = clientWithStatus(500);
+
+    await expect(client.postPayment(payment)).rejects.toMatchObject({
+      name: 'BrantaPaymentException',
+      message: 'InternalServerError',
+      reason: BrantaPaymentExceptionReason.CouldNotCheck,
+    });
   });
 });
