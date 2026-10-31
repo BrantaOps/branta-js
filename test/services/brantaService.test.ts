@@ -553,6 +553,12 @@ describe('BrantaService', () => {
       expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}`);
     });
 
+    test('verify_shouldThrow_whenClientThrows5xx', async () => {
+      clientMock.getPayments.mockRejectedValue(new BrantaPaymentException('InternalServerError'));
+
+      await expect(service.verify(brantaBitcoinLookup())).rejects.toThrow('InternalServerError');
+    });
+
     test('verify_shouldForwardOptions_toClient', async () => {
       clientMock.getPayments.mockResolvedValue([encryptedBitcoinPayment()]);
 

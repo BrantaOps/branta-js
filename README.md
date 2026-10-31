@@ -36,7 +36,7 @@ switch (result.status) {
 
 On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. A bare address is `unknown`.
 
-Missing crypto or a network failure throws. Do not treat that as `unknown`.
+Missing crypto, a network failure, or a 5xx from the API throws. Do not treat that as `unknown`. A 404 is `unknown`.
 
 ## Receive
 

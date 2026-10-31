@@ -50,6 +50,9 @@ export class BrantaClient implements IBrantaClient {
       ...(signal !== undefined ? { signal } : {}),
     });
 
+    if (response.status >= 500) {
+      throw new BrantaPaymentException(this.statusText(response.status));
+    }
     if (!response.ok) return [];
 
     const text = await response.text();

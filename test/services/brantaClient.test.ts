@@ -18,7 +18,17 @@ const destinations = [{ value: 'test-destination' }];
 const clientWithResponse = (body: unknown): BrantaClient => {
   const fakeFetch = jest.fn(async () => ({
     ok: true,
+    status: 200,
     text: async () => JSON.stringify(body),
+  })) as unknown as typeof fetch;
+  return new BrantaClient(options, fakeFetch);
+};
+
+const clientWithStatus = (status: number, body = ''): BrantaClient => {
+  const fakeFetch = jest.fn(async () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body,
   })) as unknown as typeof fetch;
   return new BrantaClient(options, fakeFetch);
 };
@@ -81,5 +91,31 @@ describe('BrantaClient.getPayments logo url validation', () => {
 
     const payments = await client.getPayments('value');
     expect(payments).toHaveLength(2);
+  });
+});
+
+describe('BrantaClient.getPayments HTTP errors', () => {
+  test('404 returns an empty list', async () => {
+    const client = clientWithStatus(404);
+
+    await expect(client.getPayments('value')).resolves.toEqual([]);
+  });
+
+  test('429 returns an empty list', async () => {
+    const client = clientWithStatus(429);
+
+    await expect(client.getPayments('value')).resolves.toEqual([]);
+  });
+
+  test.each([
+    [500, 'InternalServerError'],
+    [502, 'BadGateway'],
+    [503, 'ServiceUnavailable'],
+    [504, 'GatewayTimeout'],
+  ])('%s throws %s', async (status, message) => {
+    const client = clientWithStatus(status);
+
+    await expect(client.getPayments('value')).rejects.toThrow(BrantaPaymentException);
+    await expect(client.getPayments('value')).rejects.toThrow(message);
   });
 });
