@@ -149,9 +149,7 @@ export class BrantaService implements IBrantaService {
     for (const payment of payments) {
       const onChainBound = await this.decryptDestinations(
         payment,
-        lookupValue,
         encryptionKey,
-        undefined,
         keys,
         expectedOnChainAddress,
       );
@@ -204,7 +202,6 @@ export class BrantaService implements IBrantaService {
     options?: BrantaApiOptions,
     signal?: AbortSignal,
   ): Promise<{ payments: Payment[]; verifyUrl: string }> {
-    const derivedType = getDerivedKeyType(destinationValue)!;
     const normalizedDestination = destinationValue.toLowerCase();
     const lookupValue = await this.aesEncryption.encrypt(
       normalizedDestination,
@@ -215,18 +212,19 @@ export class BrantaService implements IBrantaService {
     const payments = await this.client.getPayments(lookupValue, options, signal);
 
     const keys: Record<string, string> = {};
+    const bound: Payment[] = [];
     for (const payment of payments) {
-      await this.decryptDestinations(payment, normalizedDestination, undefined, derivedType, keys);
+      if (await this.decryptDerivedKeyDestinations(payment, normalizedDestination, keys)) {
+        bound.push(payment);
+      }
     }
 
-    return { payments, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
+    return { payments: bound, verifyUrl: this.buildVerifyUrl(options, lookupValue, keys) };
   }
 
   private async decryptDestinations(
     payment: Payment,
-    destinationValue: string,
     encryptionKey: string | undefined,
-    derivedType: DestinationType | undefined,
     keys: Record<string, string>,
     expectedOnChainAddress?: string,
   ): Promise<boolean> {
@@ -235,44 +233,31 @@ export class BrantaService implements IBrantaService {
       if (destination.isEncrypted === false) continue;
       destination.isEncrypted = true;
 
-      if (destination.type === DestinationType.BitcoinAddress) {
-        if (encryptionKey === undefined) continue;
-        let decrypted: string;
-        try {
-          decrypted = await this.aesEncryption.decrypt(destination.value, encryptionKey);
-        } catch (err) {
-          if (err instanceof Error && err.message.includes(WEB_CRYPTO_UNAVAILABLE_MESSAGE)) {
-            throw new BrantaPaymentException(
-              'Unable to verify this payment: encryption is not available in this environment.',
-              BrantaPaymentExceptionReason.CryptoUnavailable,
-            );
-          }
-          // Key didn't match this destination — leave it encrypted.
-          continue;
+      if (destination.type !== DestinationType.BitcoinAddress) continue;
+      if (encryptionKey === undefined) continue;
+      let decrypted: string;
+      try {
+        decrypted = await this.aesEncryption.decrypt(destination.value, encryptionKey);
+      } catch (err) {
+        if (err instanceof Error && err.message.includes(WEB_CRYPTO_UNAVAILABLE_MESSAGE)) {
+          throw new BrantaPaymentException(
+            'Unable to verify this payment: encryption is not available in this environment.',
+            BrantaPaymentExceptionReason.CryptoUnavailable,
+          );
         }
-        if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
-          throw new TamperedError();
-        }
-        if (expectedOnChainAddress !== undefined) onChainBound = true;
-        destination.value = decrypted;
-        destination.isEncrypted = false;
-        if (destination.id !== undefined && !(destination.id in keys)) {
-          keys[destination.id] = encryptionKey;
-        }
-        await this.tryDecryptMetadata(payment, destination, encryptionKey);
-      } else if (derivedType !== undefined && destination.type === derivedType) {
-        const key = await toNormalizedHash(destinationValue, this.crypto);
-        try {
-          destination.value = await this.aesEncryption.decrypt(destination.value, key);
-          destination.isEncrypted = false;
-          if (destination.id !== undefined && !(destination.id in keys)) {
-            keys[destination.id] = key;
-          }
-          await this.tryDecryptMetadata(payment, destination, key);
-        } catch {
-          // Key didn't match this destination — leave it encrypted.
-        }
+        // Key didn't match this destination — leave it encrypted.
+        continue;
       }
+      if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
+        throw new TamperedError();
+      }
+      if (expectedOnChainAddress !== undefined) onChainBound = true;
+      destination.value = decrypted;
+      destination.isEncrypted = false;
+      if (destination.id !== undefined && !(destination.id in keys)) {
+        keys[destination.id] = encryptionKey;
+      }
+      await this.tryDecryptMetadata(payment, destination, encryptionKey);
     }
     return onChainBound;
   }

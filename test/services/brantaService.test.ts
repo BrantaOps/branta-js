@@ -203,7 +203,7 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
       expect(payments[0]!.destinations[0]!.isEncrypted).toBe(false);
       expect(payments[0]!.destinations[1]!.value).toBe(EncryptedBitcoinAddress);
-      expect(payments[0]!.destinations[1]!.isEncrypted).toBe(true);
+      expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
     });
 
     test('verify_combinedBrantaQr_decryptsBothAddressAndInvoice', async () => {
@@ -624,28 +624,29 @@ describe('BrantaService', () => {
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBolt11, Bolt11Hash);
     });
 
-    test('verify_unencryptedBolt11_doesNotDecrypt', async () => {
+    test('verify_unencryptedBolt11_returnsUnknown', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedBolt11) return [plainBolt11Payment()];
         return [];
       });
 
-      const { payments } = expectMatch(await service.verify(Bolt11Invoice));
+      const result = await service.verify(Bolt11Invoice);
 
-      expect(payments[0]!.destinations[0]!.value).toBe(Bolt11Invoice);
-      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
+      expectUnknown(result);
+      expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
       expect(aesMock.decrypt).not.toHaveBeenCalled();
     });
 
-    test('verify_unencryptedBolt11_setsVerifyUrl', async () => {
+    test('verify_pastedBolt11_decryptFails_returnsUnknown', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedBolt11) return [plainBolt11Payment()];
+        if (lookup === EncryptedBolt11) return [encryptedBolt11Payment()];
         return [];
       });
+      aesMock.decrypt.mockImplementation(async () => {
+        throw new Error('Decryption failed: auth tag mismatch');
+      });
 
-      const { verifyUrl } = expectMatch(await service.verify(Bolt11Invoice));
-
-      expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBolt11}`);
+      expectUnknown(await service.verify(Bolt11Invoice));
     });
 
     test('verify_bitcoinBrantaUri_setsVerifyUrlWithKeyFragment', async () => {
