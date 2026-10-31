@@ -1,6 +1,5 @@
 export enum BrantaPaymentExceptionReason {
   CryptoUnavailable = 'crypto_unavailable',
-  CouldNotCheck = 'could_not_check',
 }
 
 export class BrantaPaymentException extends Error {

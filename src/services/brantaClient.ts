@@ -1,6 +1,7 @@
 import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
-import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
+import { BrantaPaymentException } from '../exceptions/brantaPaymentException.js';
+import { IncompleteError } from '../exceptions/incompleteError.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
@@ -44,14 +45,14 @@ export class BrantaClient implements IBrantaClient {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, false);
 
-    const response = await this.fetchOrThrow(`${baseUrl}/v2/payments/${encodeURIComponent(destinationValue)}`, {
+    const response = await this.fetchGet(`${baseUrl}/v2/payments/${encodeURIComponent(destinationValue)}`, {
       method: 'GET',
       headers,
       ...(signal !== undefined ? { signal } : {}),
     });
 
-    this.throwIfServerError(response);
-    if (!response.ok) return [];
+    if (response.status === 404) return [];
+    if (!response.ok) throw new IncompleteError(this.statusText(response.status));
 
     const text = await response.text();
     if (text.length === 0) return [];
@@ -74,14 +75,13 @@ export class BrantaClient implements IBrantaClient {
 
     await this.applyHmacHeaders(headers, baseUrl, json, options);
 
-    const response = await this.fetchOrThrow(`${baseUrl}/v2/payments`, {
+    const response = await this.fetchImpl(`${baseUrl}/v2/payments`, {
       method: 'POST',
       headers,
       body: json,
       ...(signal !== undefined ? { signal } : {}),
     });
 
-    this.throwIfServerError(response);
     if (!response.ok) {
       throw new BrantaPaymentException(this.statusText(response.status));
     }
@@ -106,19 +106,13 @@ export class BrantaClient implements IBrantaClient {
     return response.ok;
   }
 
-  private async fetchOrThrow(url: string, init: RequestInit): Promise<Response> {
+  private async fetchGet(url: string, init: RequestInit): Promise<Response> {
     try {
       return await this.fetchImpl(url, init);
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') throw err;
       const message = err instanceof Error ? err.message : String(err);
-      throw new BrantaPaymentException(message, BrantaPaymentExceptionReason.CouldNotCheck);
-    }
-  }
-
-  private throwIfServerError(response: { status: number }): void {
-    if (response.status >= 500) {
-      throw new BrantaPaymentException(this.statusText(response.status), BrantaPaymentExceptionReason.CouldNotCheck);
+      throw new IncompleteError(message);
     }
   }
 

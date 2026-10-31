@@ -2,7 +2,8 @@ import { describe, expect, jest, test } from '@jest/globals';
 
 import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
-import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../src/exceptions/brantaPaymentException.js';
+import { BrantaPaymentException } from '../../src/exceptions/brantaPaymentException.js';
+import { IncompleteError } from '../../src/exceptions/incompleteError.js';
 import { BrantaClient } from '../../src/services/brantaClient.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
@@ -102,41 +103,22 @@ describe('BrantaClient.getPayments HTTP errors', () => {
     await expect(client.getPayments('value')).resolves.toEqual([]);
   });
 
-  test('429 returns an empty list', async () => {
-    const client = clientWithStatus(429);
-
-    await expect(client.getPayments('value')).resolves.toEqual([]);
-  });
-
-  test.each([
-    [500, 'InternalServerError'],
-    [502, 'BadGateway'],
-    [503, 'ServiceUnavailable'],
-    [504, 'GatewayTimeout'],
-  ])('%s throws could_not_check with message %s', async (status, message) => {
+  test.each([429, 500, 502, 503, 504])('%s throws IncompleteError', async (status) => {
     const client = clientWithStatus(status);
 
-    await expect(client.getPayments('value')).rejects.toMatchObject({
-      name: 'BrantaPaymentException',
-      message,
-      reason: BrantaPaymentExceptionReason.CouldNotCheck,
-    });
+    await expect(client.getPayments('value')).rejects.toBeInstanceOf(IncompleteError);
   });
 
-  test('network failure throws could_not_check', async () => {
+  test('network failure throws IncompleteError', async () => {
     const fakeFetch = jest.fn(async () => {
       throw new TypeError('Failed to fetch');
     }) as unknown as typeof fetch;
     const client = new BrantaClient(options, fakeFetch);
 
-    await expect(client.getPayments('value')).rejects.toMatchObject({
-      name: 'BrantaPaymentException',
-      message: 'Failed to fetch',
-      reason: BrantaPaymentExceptionReason.CouldNotCheck,
-    });
+    await expect(client.getPayments('value')).rejects.toBeInstanceOf(IncompleteError);
   });
 
-  test('AbortError is not wrapped as could_not_check', async () => {
+  test('AbortError is not wrapped as IncompleteError', async () => {
     const abort = new Error('aborted');
     abort.name = 'AbortError';
     const fakeFetch = jest.fn(async () => {
@@ -151,23 +133,21 @@ describe('BrantaClient.getPayments HTTP errors', () => {
 describe('BrantaClient.postPayment HTTP errors', () => {
   const payment = { destinations: [{ value: 'test-destination' }] };
 
-  test('401 throws without could_not_check', async () => {
+  test('401 throws Unauthorized', async () => {
     const client = clientWithStatus(401);
 
     await expect(client.postPayment(payment)).rejects.toMatchObject({
       name: 'BrantaPaymentException',
       message: 'Unauthorized',
-      reason: undefined,
     });
   });
 
-  test('500 throws could_not_check', async () => {
+  test('500 throws InternalServerError', async () => {
     const client = clientWithStatus(500);
 
     await expect(client.postPayment(payment)).rejects.toMatchObject({
       name: 'BrantaPaymentException',
       message: 'InternalServerError',
-      reason: BrantaPaymentExceptionReason.CouldNotCheck,
     });
   });
 });
