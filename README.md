@@ -32,14 +32,14 @@ switch (result.status) {
     // Destination was altered. Warn. Do not show a verified card.
     break;
   case "incomplete":
-    // Lookup did not finish. Tell the user. Do not treat as unknown.
+    // 5xx, 429, or unreachable. Tell the user. Do not treat as unknown.
     break;
 }
 ```
 
 On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. A bare address is `unknown`.
 
-Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`.
+Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 
 ## Receive
 
