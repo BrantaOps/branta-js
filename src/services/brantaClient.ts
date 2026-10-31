@@ -1,6 +1,7 @@
 import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaPaymentException } from '../exceptions/brantaPaymentException.js';
+import { IncompleteError } from '../exceptions/incompleteError.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
@@ -44,13 +45,14 @@ export class BrantaClient implements IBrantaClient {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, false);
 
-    const response = await this.fetchImpl(`${baseUrl}/v2/payments/${encodeURIComponent(destinationValue)}`, {
+    const response = await this.fetchGet(`${baseUrl}/v2/payments/${encodeURIComponent(destinationValue)}`, {
       method: 'GET',
       headers,
       ...(signal !== undefined ? { signal } : {}),
     });
 
-    if (!response.ok) return [];
+    if (response.status === 404) return [];
+    if (!response.ok) throw new IncompleteError(this.statusText(response.status));
 
     const text = await response.text();
     if (text.length === 0) return [];
@@ -102,6 +104,16 @@ export class BrantaClient implements IBrantaClient {
     });
 
     return response.ok;
+  }
+
+  private async fetchGet(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await this.fetchImpl(url, init);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new IncompleteError(message);
+    }
   }
 
   private resolveBaseUrl(options: BrantaApiOptions | undefined): string {

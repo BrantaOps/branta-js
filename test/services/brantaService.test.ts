@@ -5,6 +5,7 @@ import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
 import { DestinationType } from '../../src/enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../../src/exceptions/brantaPaymentException.js';
+import { IncompleteError } from '../../src/exceptions/incompleteError.js';
 import { toNormalizedHash } from '../../src/extensions/brantaExtensions.js';
 import { PaymentBuilder } from '../../src/classes/paymentBuilder.js';
 import { IAesEncryption } from '../../src/interfaces/iAesEncryption.js';
@@ -26,6 +27,10 @@ const expectUnknown = (result: VerifyResult): void => {
 
 const expectTampered = (result: VerifyResult): void => {
   expect(result.status).toBe(VerifyStatus.Tampered);
+};
+
+const expectIncomplete = (result: VerifyResult): void => {
+  expect(result.status).toBe(VerifyStatus.Incomplete);
 };
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
@@ -550,6 +555,15 @@ describe('BrantaService', () => {
       const result = await service.verify(brantaBitcoinLookup());
 
       expectUnknown(result);
+      expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}`);
+    });
+
+    test('verify_shouldReturnIncomplete_whenClientLookupDoesNotFinish', async () => {
+      clientMock.getPayments.mockRejectedValue(new IncompleteError('InternalServerError'));
+
+      const result = await service.verify(brantaBitcoinLookup());
+
+      expectIncomplete(result);
       expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}`);
     });
 

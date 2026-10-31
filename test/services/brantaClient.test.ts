@@ -3,6 +3,7 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
 import { BrantaPaymentException } from '../../src/exceptions/brantaPaymentException.js';
+import { IncompleteError } from '../../src/exceptions/incompleteError.js';
 import { BrantaClient } from '../../src/services/brantaClient.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
@@ -11,6 +12,7 @@ const OtherOrigin = 'https://attacker.example';
 
 const options: BrantaApiOptions = {
   environment: BrantaEnvironment.Localhost,
+  apiKey: 'test-key',
 };
 
 const destinations = [{ value: 'test-destination' }];
@@ -18,7 +20,17 @@ const destinations = [{ value: 'test-destination' }];
 const clientWithResponse = (body: unknown): BrantaClient => {
   const fakeFetch = jest.fn(async () => ({
     ok: true,
+    status: 200,
     text: async () => JSON.stringify(body),
+  })) as unknown as typeof fetch;
+  return new BrantaClient(options, fakeFetch);
+};
+
+const clientWithStatus = (status: number, body = ''): BrantaClient => {
+  const fakeFetch = jest.fn(async () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body,
   })) as unknown as typeof fetch;
   return new BrantaClient(options, fakeFetch);
 };
@@ -81,5 +93,61 @@ describe('BrantaClient.getPayments logo url validation', () => {
 
     const payments = await client.getPayments('value');
     expect(payments).toHaveLength(2);
+  });
+});
+
+describe('BrantaClient.getPayments HTTP errors', () => {
+  test('404 returns an empty list', async () => {
+    const client = clientWithStatus(404);
+
+    await expect(client.getPayments('value')).resolves.toEqual([]);
+  });
+
+  test.each([429, 500, 502, 503, 504])('%s throws IncompleteError', async (status) => {
+    const client = clientWithStatus(status);
+
+    await expect(client.getPayments('value')).rejects.toBeInstanceOf(IncompleteError);
+  });
+
+  test('network failure throws IncompleteError', async () => {
+    const fakeFetch = jest.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch);
+
+    await expect(client.getPayments('value')).rejects.toBeInstanceOf(IncompleteError);
+  });
+
+  test('AbortError is not wrapped as IncompleteError', async () => {
+    const abort = new Error('aborted');
+    abort.name = 'AbortError';
+    const fakeFetch = jest.fn(async () => {
+      throw abort;
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch);
+
+    await expect(client.getPayments('value')).rejects.toBe(abort);
+  });
+});
+
+describe('BrantaClient.postPayment HTTP errors', () => {
+  const payment = { destinations: [{ value: 'test-destination' }] };
+
+  test('401 throws Unauthorized', async () => {
+    const client = clientWithStatus(401);
+
+    await expect(client.postPayment(payment)).rejects.toMatchObject({
+      name: 'BrantaPaymentException',
+      message: 'Unauthorized',
+    });
+  });
+
+  test('500 throws InternalServerError', async () => {
+    const client = clientWithStatus(500);
+
+    await expect(client.postPayment(payment)).rejects.toMatchObject({
+      name: 'BrantaPaymentException',
+      message: 'InternalServerError',
+    });
   });
 });

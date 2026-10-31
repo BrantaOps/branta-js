@@ -5,6 +5,7 @@ import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../enums/brantaEnvironment.js';
 import { DestinationType } from '../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
+import { IncompleteError } from '../exceptions/incompleteError.js';
 import {
   getBaseUrl,
   getDerivedKeyType,
@@ -125,6 +126,9 @@ export class BrantaService implements IBrantaService {
     } catch (err) {
       if (err instanceof TamperedError) {
         return { status: VerifyStatus.Tampered, verifyUrl: this.buildVerifyUrl(options, lookup) };
+      }
+      if (err instanceof IncompleteError) {
+        return { status: VerifyStatus.Incomplete, verifyUrl: this.buildVerifyUrl(options, lookup) };
       }
       throw err;
     }
