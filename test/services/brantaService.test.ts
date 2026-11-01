@@ -700,6 +700,12 @@ describe('BrantaService', () => {
   // ===== addPayment =====
 
   describe('addPayment', () => {
+    const submittedPayment = (): Payment => {
+      const submitted = clientMock.postPayment.mock.calls.at(-1)?.[0];
+      if (submitted === undefined) throw new Error('postPayment was not called');
+      return submitted;
+    };
+
     test('addPayment_bitcoinAddressWithoutType_encryptsWithSecretAndSetsType', async () => {
       const payment = new PaymentBuilder().addDestination(BitcoinAddress).build();
       const id = payment.destinations[0]!.id!;
@@ -714,8 +720,10 @@ describe('BrantaService', () => {
       await service.addPayment(payment);
 
       expect(aesMock.encrypt).toHaveBeenCalledWith(BitcoinAddress, Secret, false);
-      expect(payment.destinations[0]!.type).toBe(DestinationType.BitcoinAddress);
-      expect(payment.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(payment.destinations[0]!.type).toBeUndefined();
+      expect(payment.destinations[0]!.value).toBe(BitcoinAddress);
+      expect(submittedPayment().destinations[0]!.type).toBe(DestinationType.BitcoinAddress);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBitcoinAddress);
     });
 
     test('addPayment_bolt11WithoutType_encryptsWithHash', async () => {
@@ -732,7 +740,8 @@ describe('BrantaService', () => {
       await service.addPayment(payment);
 
       expect(aesMock.encrypt).toHaveBeenCalledWith(Bolt11Invoice, Bolt11Hash, true);
-      expect(payment.destinations[0]!.value).toBe(EncryptedBolt11);
+      expect(payment.destinations[0]!.value).toBe(Bolt11Invoice);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBolt11);
     });
 
     test('addPayment_encryptsBitcoinAddressWithSecret', async () => {
@@ -752,7 +761,8 @@ describe('BrantaService', () => {
 
       expect(aesMock.encrypt).toHaveBeenCalledWith(BitcoinAddress, Secret, false);
       expect(secret).toBe(Secret);
-      expect(payment.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
+      expect(payment.destinations[0]!.value).toBe(BitcoinAddress);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBitcoinAddress);
     });
 
     test('addPayment_bolt11_encryptsWithHash', async () => {
@@ -771,7 +781,8 @@ describe('BrantaService', () => {
       await service.addPayment(payment);
 
       expect(aesMock.encrypt).toHaveBeenCalledWith(Bolt11Invoice, Bolt11Hash, true);
-      expect(payment.destinations[0]!.value).toBe(EncryptedBolt11);
+      expect(payment.destinations[0]!.value).toBe(Bolt11Invoice);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBolt11);
     });
 
     test('addPayment_arkAddress_encryptsWithHash', async () => {
@@ -790,7 +801,8 @@ describe('BrantaService', () => {
       await service.addPayment(payment);
 
       expect(aesMock.encrypt).toHaveBeenCalledWith(ArkAddress, ArkHash, true);
-      expect(payment.destinations[0]!.value).toBe(EncryptedArkAddress);
+      expect(payment.destinations[0]!.value).toBe(ArkAddress);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedArkAddress);
     });
 
     test('addPayment_bitcoinAddress_setsVerifyUrlWithKeyFragment', async () => {
@@ -835,6 +847,64 @@ describe('BrantaService', () => {
 
       await expect(service.addPayment(payment)).rejects.toThrow(BrantaPaymentException);
       expect(clientMock.postPayment).not.toHaveBeenCalled();
+      expect(payment.destinations[0]!.value).toBe('not-a-payable-destination');
+    });
+
+    test('addPayment_retryAfterPostFailure_encryptsTheOriginalAddress', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      const id = payment.destinations[0]!.id!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination('encrypted-on-retry', DestinationType.BitcoinAddress)
+        .build();
+      responsePayment.destinations[0]!.id = id;
+
+      clientMock.postPayment
+        .mockRejectedValueOnce(new BrantaPaymentException('500'))
+        .mockResolvedValueOnce(responsePayment);
+      secretMock.generate.mockReturnValueOnce(Secret).mockReturnValueOnce('retry-secret');
+      aesMock.encrypt.mockImplementation(async (value, secret) => {
+        if (value === BitcoinAddress && secret === Secret) return EncryptedBitcoinAddress;
+        if (value === BitcoinAddress && secret === 'retry-secret') return 'encrypted-on-retry';
+        return 'double-encrypted';
+      });
+
+      await expect(service.addPayment(payment)).rejects.toThrow(BrantaPaymentException);
+      expect(payment.destinations[0]!.value).toBe(BitcoinAddress);
+
+      const { secret } = await service.addPayment(payment);
+
+      expect(secret).toBe('retry-secret');
+      expect(payment.destinations[0]!.value).toBe(BitcoinAddress);
+      expect(aesMock.encrypt).toHaveBeenCalledWith(BitcoinAddress, 'retry-secret', false);
+      expect(aesMock.encrypt).not.toHaveBeenCalledWith(EncryptedBitcoinAddress, 'retry-secret', false);
+      expect(submittedPayment().destinations[0]!.value).toBe('encrypted-on-retry');
+    });
+
+    test('addPayment_retryAfterPostFailure_bolt11StillEncryptsTheInvoice', async () => {
+      const payment = new PaymentBuilder().addDestination(Bolt11Invoice, DestinationType.Bolt11).build();
+      const id = payment.destinations[0]!.id!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBolt11, DestinationType.Bolt11)
+        .build();
+      responsePayment.destinations[0]!.id = id;
+
+      clientMock.postPayment
+        .mockRejectedValueOnce(new BrantaPaymentException('500'))
+        .mockResolvedValueOnce(responsePayment);
+
+      await expect(service.addPayment(payment)).rejects.toThrow(BrantaPaymentException);
+      expect(payment.destinations[0]!.value).toBe(Bolt11Invoice);
+
+      await service.addPayment(payment);
+
+      expect(payment.destinations[0]!.value).toBe(Bolt11Invoice);
+      expect(aesMock.encrypt).toHaveBeenNthCalledWith(1, Bolt11Invoice, Bolt11Hash, true);
+      expect(aesMock.encrypt).toHaveBeenNthCalledWith(2, Bolt11Invoice, Bolt11Hash, true);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBolt11);
     });
   });
 
@@ -883,6 +953,12 @@ describe('BrantaService', () => {
     const Metadata = '{"email":"alice@example.com"}';
     const EncryptedMetadata = 'encrypted-metadata-value';
 
+    const submittedPayment = (): Payment => {
+      const submitted = clientMock.postPayment.mock.calls.at(-1)?.[0];
+      if (submitted === undefined) throw new Error('postPayment was not called');
+      return submitted;
+    };
+
     // addPayment
 
     test('addPayment_withMetadataAndBitcoinDestination_encryptsMetadataWithDekAndSetsDek', async () => {
@@ -908,8 +984,10 @@ describe('BrantaService', () => {
 
       await service.addPayment(payment);
 
-      expect(payment.metadata).toBe(EncryptedMetadata);
-      expect(payment.destinations[0]!.encryptedDek).toBe(EncryptedDek);
+      expect(payment.metadata).toBe(Metadata);
+      expect(payment.destinations[0]!.encryptedDek).toBeUndefined();
+      expect(submittedPayment().metadata).toBe(EncryptedMetadata);
+      expect(submittedPayment().destinations[0]!.encryptedDek).toBe(EncryptedDek);
       expect(aesMock.encrypt).toHaveBeenCalledWith(Metadata, Dek, false);
       expect(aesMock.encrypt).toHaveBeenCalledWith(Dek, Secret, false);
     });
@@ -937,8 +1015,10 @@ describe('BrantaService', () => {
 
       await service.addPayment(payment);
 
-      expect(payment.metadata).toBe(EncryptedMetadata);
-      expect(payment.destinations[0]!.encryptedDek).toBe(EncryptedDek);
+      expect(payment.metadata).toBe(Metadata);
+      expect(payment.destinations[0]!.encryptedDek).toBeUndefined();
+      expect(submittedPayment().metadata).toBe(EncryptedMetadata);
+      expect(submittedPayment().destinations[0]!.encryptedDek).toBe(EncryptedDek);
       expect(secretMock.generate).toHaveBeenCalledTimes(2);
     });
 
@@ -966,8 +1046,10 @@ describe('BrantaService', () => {
 
       await service.addPayment(payment);
 
-      expect(payment.description).toBeUndefined();
-      expect(payment.metadata).toBe(EncryptedMetadata);
+      expect(payment.description).toBe('Invoice #1');
+      expect(payment.metadata).toBeUndefined();
+      expect(submittedPayment().description).toBeUndefined();
+      expect(submittedPayment().metadata).toBe(EncryptedMetadata);
       expect(aesMock.encrypt).toHaveBeenCalledWith(plaintext, Dek, false);
     });
 
@@ -992,6 +1074,7 @@ describe('BrantaService', () => {
 
       expect(secretMock.generate).toHaveBeenCalledTimes(1);
       expect(payment.destinations[0]!.encryptedDek).toBeUndefined();
+      expect(submittedPayment().destinations[0]!.encryptedDek).toBeUndefined();
     });
 
     // decryptDestinations

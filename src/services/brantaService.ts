@@ -37,6 +37,14 @@ const toVerifyResult = (payments: Payment[], verifyUrl: string): VerifyResult =>
     ? { status: VerifyStatus.Unknown, verifyUrl }
     : { status: VerifyStatus.Match, payments, verifyUrl };
 
+// Encrypt and post this copy. A failed post must leave the caller's Payment reusable.
+const copyPayment = (payment: Payment): Payment => ({
+  ...payment,
+  destinations: payment.destinations.map((destination) => ({ ...destination })),
+  parentPlatform: payment.parentPlatform === undefined ? undefined : { ...payment.parentPlatform },
+  childPlatform: payment.childPlatform === undefined ? undefined : { ...payment.childPlatform },
+});
+
 const addressesMatch = (a: string, b: string): boolean => {
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
   if (isBech32(a) && isBech32(b)) return a.toLowerCase() === b.toLowerCase();
@@ -280,17 +288,18 @@ export class BrantaService implements IBrantaService {
     options?: BrantaApiOptions,
     signal?: AbortSignal,
   ): Promise<{ payment: Payment; secret: string; verifyUrl: string }> {
-    foldDescriptionIntoMetadata(payment);
+    const submitted = copyPayment(payment);
+    foldDescriptionIntoMetadata(submitted);
     let dek: string | undefined;
-    if (payment.metadata != null && payment.destinations.length > 0) {
+    if (submitted.metadata != null && submitted.destinations.length > 0) {
       dek = this.secretGenerator.generate();
-      payment.metadata = await this.aesEncryption.encrypt(payment.metadata, dek, false);
+      submitted.metadata = await this.aesEncryption.encrypt(submitted.metadata, dek, false);
     }
 
     const secret = this.secretGenerator.generate();
     const encryptedToKey: Record<string, string> = {};
 
-    for (const destination of payment.destinations) {
+    for (const destination of submitted.destinations) {
       if (destination.id === undefined) {
         destination.id = (this.crypto ?? globalThis.crypto).randomUUID();
       }
@@ -319,7 +328,7 @@ export class BrantaService implements IBrantaService {
       }
     }
 
-    const responsePayment = await this.client.postPayment(payment, options, signal);
+    const responsePayment = await this.client.postPayment(submitted, options, signal);
     if (!responsePayment) {
       throw new BrantaPaymentException('No payment returned from server.');
     }
@@ -331,7 +340,7 @@ export class BrantaService implements IBrantaService {
       }
     }
 
-    const primaryValue = payment.destinations[0]?.value ?? '';
+    const primaryValue = submitted.destinations[0]?.value ?? '';
     const verifyUrl = this.buildVerifyUrl(options, primaryValue, keys);
 
     return { payment: responsePayment, secret, verifyUrl };

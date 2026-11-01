@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `addPayment` encrypts a copy of the caller's `Payment`. A failed post no longer leaves that object encrypted, so retrying the same instance does not wrap a bitcoin address a second time or reject a bolt11, Ark, or silent-payment destination.
+
 ## [4.0.3] - 2026-11-01
 
 ### Changed
