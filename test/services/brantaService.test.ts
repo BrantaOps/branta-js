@@ -41,7 +41,6 @@ const brantaBitcoinLookup = (secret = Secret) =>
 
 const Bolt11Invoice = 'lnbc100n1ptest';
 const EncryptedBolt11 = 'encrypted-bolt11-value';
-const DecryptedBolt11 = 'lnbc100n1pdecrypted';
 
 const ArkAddress = 'ark100testaddress';
 const EncryptedArkAddress = 'encrypted-ark-address';
@@ -83,7 +82,8 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
   });
   const decrypt = jest.fn<DecryptFn>().mockImplementation(async (encryptedValue, secret) => {
     if (encryptedValue === EncryptedBitcoinAddress && secret === Secret) return BitcoinAddress;
-    if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) return DecryptedBolt11;
+    if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) return Bolt11Invoice;
+    if (encryptedValue === EncryptedArkAddress && secret === ArkHash) return ArkAddress;
     return '';
   });
   return { encrypt, decrypt };
@@ -200,10 +200,36 @@ describe('BrantaService', () => {
       const { payments } = expectMatch(await service.verify(`lightning:${Bolt11Invoice}`));
 
       expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
+      expect(payments[0]!.destinations[0]!.value).toBe(Bolt11Invoice);
       expect(payments[0]!.destinations[0]!.isEncrypted).toBe(false);
       expect(payments[0]!.destinations[1]!.value).toBe(EncryptedBitcoinAddress);
       expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
+    });
+
+    test('verify_bolt11DecryptingToADifferentInvoice_isTampered', async () => {
+      aesMock.decrypt.mockImplementation(async (encryptedValue, secret) => {
+        if (encryptedValue === 'encrypted-attacker-invoice' && secret === Bolt11Hash) return 'lnbc1attacker';
+        throw new Error('auth tag mismatch');
+      });
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBolt11) {
+          return [
+            {
+              destinations: [
+                { value: 'copied-lookup', type: DestinationType.BitcoinAddress, id: 'btc' },
+                { value: 'encrypted-attacker-invoice', type: DestinationType.Bolt11, id: 'bolt' },
+              ],
+            },
+          ];
+        }
+        return [];
+      });
+
+      const result = await service.verify(`lightning:${Bolt11Invoice}`);
+
+      expectTampered(result);
+      expect(result.verifyUrl).toBe(`http://localhost:3000/v2/verify/${Bolt11Invoice}`);
+      expect(result.verifyUrl.includes('#')).toBe(false);
     });
 
     test('verify_combinedBrantaQr_decryptsBothAddressAndInvoice', async () => {
@@ -229,7 +255,7 @@ describe('BrantaService', () => {
         `http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${id}=${Secret}&k-${bolt11Id}=${Bolt11Hash}&k-${arkId}=${ArkHash}`,
       );
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
-      expect(payments[0]!.destinations[1]!.value).toBe(DecryptedBolt11);
+      expect(payments[0]!.destinations[1]!.value).toBe(Bolt11Invoice);
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBitcoinAddress, Secret);
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBolt11, Bolt11Hash);
     });
@@ -344,7 +370,7 @@ describe('BrantaService', () => {
         status: VerifyStatus.Match,
         payments: [
           {
-            destinations: [{ value: DecryptedBolt11 }, { value: BitcoinAddress, isEncrypted: false }],
+            destinations: [{ value: Bolt11Invoice }, { value: BitcoinAddress, isEncrypted: false }],
           },
         ],
       });
@@ -619,7 +645,7 @@ describe('BrantaService', () => {
       const { payments } = expectMatch(await service.verify(Bolt11Invoice));
 
       expect(payments).toHaveLength(1);
-      expect(payments[0]!.destinations[0]!.value).toBe(DecryptedBolt11);
+      expect(payments[0]!.destinations[0]!.value).toBe(Bolt11Invoice);
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBolt11, undefined, undefined);
       expect(aesMock.decrypt).toHaveBeenCalledWith(EncryptedBolt11, Bolt11Hash);
     });
@@ -1149,7 +1175,7 @@ describe('BrantaService', () => {
         return [];
       });
       aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
-        if (encryptedValue === EncryptedBolt11 && key === Bolt11Hash) return DecryptedBolt11;
+        if (encryptedValue === EncryptedBolt11 && key === Bolt11Hash) return Bolt11Invoice;
         if (encryptedValue === EncryptedDek && key === Bolt11Hash) return Dek;
         if (encryptedValue === EncryptedMetadata && key === Dek) return Metadata;
         throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
