@@ -127,4 +127,8 @@ describe('BrantaExtensions', () => {
   test('toUrlFragment_joinsMultiplePairsWithAmpersand', () => {
     expect(toUrlFragment({ a: '1', b: '2' })).toBe('#k-a=1&k-b=2');
   });
+
+  test('toUrlFragment_encodesReservedCharacters', () => {
+    expect(toUrlFragment({ 'AAAA&k-BBBB': 'sec ret&=#' })).toBe('#k-AAAA%26k-BBBB=sec%20ret%26%3D%23');
+  });
 });

@@ -665,6 +665,24 @@ describe('BrantaService', () => {
       expect(verifyUrl).toBe(`http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-${id}=${Secret}`);
     });
 
+    test('verify_encodesReservedCharactersInFragment', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      payment.destinations[0]!.id = 'AAAA&k-BBBB';
+
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedBitcoinAddress) return [payment];
+        return [];
+      });
+
+      const { verifyUrl } = expectMatch(await service.verify(brantaBitcoinLookup()));
+
+      expect(verifyUrl).toBe(
+        `http://localhost:3000/v2/verify/${EncryptedBitcoinAddress}#k-AAAA%26k-BBBB=${Secret}`,
+      );
+    });
+
     test('verify_bolt11_setsVerifyUrlWithKeyFragment', async () => {
       const payment = new PaymentBuilder()
         .addDestination(EncryptedBolt11, DestinationType.Bolt11)
