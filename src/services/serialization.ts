@@ -41,7 +41,6 @@ export const paymentToApi = (payment: Payment): Record<string, unknown> => {
   const result: Record<string, unknown> = {
     destinations: payment.destinations.map(destinationToApi),
   };
-  if (payment.description !== undefined) result['description'] = payment.description;
   if (payment.createdDate !== undefined) result['created_at'] = payment.createdDate;
   if (payment.ttl !== undefined) result['ttl'] = payment.ttl;
   if (payment.metadata !== undefined) result['metadata'] = payment.metadata;
@@ -63,7 +62,6 @@ export const paymentFromApi = (raw: Record<string, unknown>): Payment => {
   const payment: Payment = {
     destinations: destinationsRaw.map(destinationFromApi),
   };
-  if (raw['description'] !== undefined && raw['description'] !== null) payment.description = String(raw['description']);
   if (raw['created_at'] !== undefined && raw['created_at'] !== null) payment.createdDate = String(raw['created_at']);
   if (raw['ttl'] !== undefined && raw['ttl'] !== null) payment.ttl = Number(raw['ttl']);
   if (raw['metadata'] !== undefined && raw['metadata'] !== null) payment.metadata = String(raw['metadata']);
@@ -95,4 +93,32 @@ export const paymentFromApi = (raw: Record<string, unknown>): Payment => {
     payment.childPlatform = childPlatform;
   }
   return payment;
+};
+
+const parseMetadataMap = (metadata: string | undefined): Record<string, unknown> => {
+  if (metadata === undefined || metadata === '') return {};
+  try {
+    const parsed = JSON.parse(metadata);
+    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // opaque string
+  }
+  return {};
+};
+
+export const foldDescriptionIntoMetadata = (payment: Payment): void => {
+  if (payment.description === undefined || payment.description === '') return;
+  const metadataMap = parseMetadataMap(payment.metadata);
+  if (metadataMap['description'] === undefined) {
+    metadataMap['description'] = payment.description;
+  }
+  payment.metadata = JSON.stringify(metadataMap);
+  payment.description = undefined;
+};
+
+export const liftDescriptionFromMetadata = (payment: Payment): void => {
+  const description = parseMetadataMap(payment.metadata)['description'];
+  if (typeof description === 'string') payment.description = description;
 };

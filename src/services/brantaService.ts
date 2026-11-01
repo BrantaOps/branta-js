@@ -23,6 +23,7 @@ import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
 import { VerifyResult, VerifyStatus } from '../models/verifyResult.js';
 import { BrantaClient } from './brantaClient.js';
+import { foldDescriptionIntoMetadata, liftDescriptionFromMetadata } from './serialization.js';
 
 class TamperedError extends Error {
   constructor() {
@@ -268,6 +269,7 @@ export class BrantaService implements IBrantaService {
       const dek = await this.aesEncryption.decrypt(destination.encryptedDek, keyUsed);
       payment.metadata = await this.aesEncryption.decrypt(payment.metadata, dek);
       payment.isMetadataDecrypted = true;
+      liftDescriptionFromMetadata(payment);
     } catch {
       // DEK decryption failed — leave metadata as-is.
     }
@@ -278,6 +280,7 @@ export class BrantaService implements IBrantaService {
     options?: BrantaApiOptions,
     signal?: AbortSignal,
   ): Promise<{ payment: Payment; secret: string; verifyUrl: string }> {
+    foldDescriptionIntoMetadata(payment);
     let dek: string | undefined;
     if (payment.metadata != null && payment.destinations.length > 0) {
       dek = this.secretGenerator.generate();
