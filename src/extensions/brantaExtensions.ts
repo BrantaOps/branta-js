@@ -70,6 +70,6 @@ export async function toNormalizedHash(value: string, crypto?: BrantaCryptoProvi
 export function toUrlFragment(keys: Record<string, string>): string {
   const entries = Object.entries(keys);
   if (entries.length === 0) return '';
-  const fragments = entries.map(([k, v]) => `k-${k}=${v}`);
+  const fragments = entries.map(([k, v]) => `k-${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
   return '#' + fragments.join('&');
 }
