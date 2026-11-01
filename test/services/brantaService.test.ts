@@ -942,6 +942,35 @@ describe('BrantaService', () => {
       expect(secretMock.generate).toHaveBeenCalledTimes(2);
     });
 
+    test('addPayment_withLeftoverDescription_encryptsDescriptionInMetadata', async () => {
+      const plaintext = '{"description":"Invoice #1"}';
+      const payment = new PaymentBuilder()
+        .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      payment.description = 'Invoice #1';
+      const id = payment.destinations[0]!.id!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress)
+        .build();
+      responsePayment.destinations[0]!.id = id;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+      secretMock.generate.mockReturnValueOnce(Dek).mockReturnValueOnce(Secret);
+      aesMock.encrypt.mockImplementation(async (value, key) => {
+        if (value === plaintext && key === Dek) return EncryptedMetadata;
+        if (value === BitcoinAddress && key === Secret) return EncryptedBitcoinAddress;
+        if (value === Dek && key === Secret) return EncryptedDek;
+        return '';
+      });
+
+      await service.addPayment(payment);
+
+      expect(payment.description).toBeUndefined();
+      expect(payment.metadata).toBe(EncryptedMetadata);
+      expect(aesMock.encrypt).toHaveBeenCalledWith(plaintext, Dek, false);
+    });
+
     test('addPayment_withDestinationAndNoMetadata_doesNotGenerateDek', async () => {
       const payment = new PaymentBuilder()
         .addDestination(BitcoinAddress, DestinationType.BitcoinAddress)
@@ -966,6 +995,27 @@ describe('BrantaService', () => {
     });
 
     // decryptDestinations
+
+    test('verify_decryptedMetadata_liftsDescription', async () => {
+      const decryptedMetadata = '{"description":"Invoice #123"}';
+      const payment: Payment = {
+        destinations: [{ value: EncryptedBitcoinAddress, type: DestinationType.BitcoinAddress, encryptedDek: EncryptedDek }],
+        metadata: EncryptedMetadata,
+      };
+
+      clientMock.getPayments.mockResolvedValue([payment]);
+      aesMock.decrypt.mockImplementation(async (encryptedValue, key) => {
+        if (encryptedValue === EncryptedBitcoinAddress && key === Secret) return BitcoinAddress;
+        if (encryptedValue === EncryptedDek && key === Secret) return Dek;
+        if (encryptedValue === EncryptedMetadata && key === Dek) return decryptedMetadata;
+        throw new Error(`unexpected: decrypt(${encryptedValue}, ${key})`);
+      });
+
+      const { payments } = expectMatch(await service.verify(brantaBitcoinLookup()));
+
+      expect(payments[0]!.metadata).toBe(decryptedMetadata);
+      expect(payments[0]!.description).toBe('Invoice #123');
+    });
 
     test('verify_encryptedBitcoinWithEncryptedDek_decryptsMetadataViaDek', async () => {
       const payment: Payment = {

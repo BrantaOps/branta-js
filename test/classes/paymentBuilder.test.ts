@@ -2,7 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import { DestinationType } from '../../src/enums/destinationType.js';
 import { PaymentBuilder } from '../../src/classes/paymentBuilder.js';
-import { destinationFromApi, destinationToApi, paymentToApi } from '../../src/services/serialization.js';
+import { destinationFromApi, destinationToApi, paymentFromApi, paymentToApi } from '../../src/services/serialization.js';
 
 const BitcoinAddress = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
 const Bolt11Invoice = 'lnbc100n1ptest';
@@ -80,13 +80,26 @@ describe('PaymentBuilder', () => {
     expect(apiObject['zk_id']).toBe(payment.destinations[0]!.id);
   });
 
-  test('setDescription_setsDescription', () => {
+  test('setDescription_writesMetadataDescription', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress)
       .setDescription('test desc')
       .build();
 
-    expect(payment.description).toBe('test desc');
+    expect(payment.description).toBeUndefined();
+    expect(JSON.parse(payment.metadata!)).toEqual({ description: 'test desc' });
+  });
+
+  test('paymentToApi_omitsDescription', () => {
+    const api = paymentToApi({ destinations: [], description: 'plaintext' });
+
+    expect(api['description']).toBeUndefined();
+  });
+
+  test('paymentFromApi_ignoresDescription', () => {
+    const payment = paymentFromApi({ destinations: [], description: 'plaintext' });
+
+    expect(payment.description).toBeUndefined();
   });
 
   test('setTtl_setsTtl', () => {

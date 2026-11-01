@@ -19,8 +19,7 @@ export class PaymentBuilder {
   }
 
   setDescription(description: string): this {
-    this.payment.description = description;
-    return this;
+    return this.addMetadata('description', description);
   }
 
   addMetadata(key: string, value: string): this {
