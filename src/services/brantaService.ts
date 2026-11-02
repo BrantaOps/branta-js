@@ -185,14 +185,9 @@ export class BrantaService implements IBrantaService {
     let bound = false;
     for (const destination of payment.destinations) {
       if (destination.isEncrypted === false || destination.type !== derivedType) continue;
+      let decrypted: string;
       try {
-        destination.value = await this.aesEncryption.decrypt(destination.value, key);
-        destination.isEncrypted = false;
-        if (destination.id !== undefined && !(destination.id in keys)) {
-          keys[destination.id] = key;
-        }
-        await this.tryDecryptMetadata(payment, destination, key);
-        bound = true;
+        decrypted = await this.aesEncryption.decrypt(destination.value, key);
       } catch (err) {
         if (err instanceof Error && err.message.includes(WEB_CRYPTO_UNAVAILABLE_MESSAGE)) {
           throw new BrantaPaymentException(
@@ -201,7 +196,18 @@ export class BrantaService implements IBrantaService {
           );
         }
         // Key didn't match this destination — leave it encrypted.
+        continue;
       }
+      if (decrypted.toLowerCase() !== plainValue.toLowerCase()) {
+        throw new TamperedError();
+      }
+      destination.value = decrypted;
+      destination.isEncrypted = false;
+      if (destination.id !== undefined && !(destination.id in keys)) {
+        keys[destination.id] = key;
+      }
+      await this.tryDecryptMetadata(payment, destination, key);
+      bound = true;
     }
     return bound;
   }
