@@ -55,6 +55,8 @@ const detectDestinationType = (value: string): DestinationType | undefined => {
 
 const getDestinationType = (text: string): DestinationType | undefined => {
   if (startsWithI(text, 'bitcoin:')) return DestinationType.BitcoinAddress;
+  // `pol:` is the Polygon EVM scheme; verify binds any POLYGON_EVM family type.
+  // Tagged as UsdtPolygon until another family member exists for QR typing.
   if (startsWithI(text, 'pol:')) return DestinationType.UsdtPolygon;
   if (startsWithI(text, 'lightning:')) {
     const dest = getDestination(text);
@@ -102,6 +104,7 @@ export class QRParser {
 
     const scheme = uri.protocol.replace(/:$/, '').toLowerCase();
     if (scheme === 'pol') {
+      // Polygon EVM family — see POLYGON_EVM_DESTINATION_TYPES / secretKeyTypesForQrDestinationType.
       const dest = getDestination(text);
       if (dest !== undefined) {
         this.destinations.push({ value: dest, type: DestinationType.UsdtPolygon });
