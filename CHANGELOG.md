@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- `pol:` is the Polygon EVM scheme family, not USDT-only. `verify()` binds any `POLYGON_EVM_DESTINATION_TYPES` member whose decrypted address matches the QR (match-if-any). Membership is `{usdt_polygon}` today; `usdc_polygon` joins that list when the type ships. A swapped address still returns `tampered` when a family rail decrypts and none match. Bitcoin remains a singleton rail outside this family.
+
 ## [4.1.0] - 2026-11-09
 
 ### Added

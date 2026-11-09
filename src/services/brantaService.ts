@@ -3,7 +3,11 @@ import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../classes/aesEncryption.js';
 import { AesEncryptionService } from '../classes/aesEncryptionService.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../enums/brantaEnvironment.js';
-import { DestinationType, isSecretKeyAddressType } from '../enums/destinationType.js';
+import {
+  DestinationType,
+  isSecretKeyAddressType,
+  secretKeyTypesForQrDestinationType,
+} from '../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../exceptions/incompleteError.js';
 import {
@@ -70,9 +74,15 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   return first;
 };
 
-/** Rail type for that visible address — swap-check only this type on the payment record. */
-const expectedSecretKeyType = (parser: QRParser): DestinationType | undefined =>
-  secretKeyDestinations(parser)[0]?.type;
+/**
+ * Secret-key types this QR may bind. `pol:` expands to the Polygon EVM family;
+ * bitcoin stays a singleton. Swap-check only these types (match-if-any).
+ */
+const expectedSecretKeyTypes = (parser: QRParser): ReadonlySet<DestinationType> | undefined => {
+  const type = secretKeyDestinations(parser)[0]?.type;
+  if (type === undefined) return undefined;
+  return new Set(secretKeyTypesForQrDestinationType(type));
+};
 
 export interface BrantaServiceOptions extends BrantaApiOptions {
   environment: BrantaEnvironment;
@@ -128,7 +138,7 @@ export class BrantaService implements IBrantaService {
           parser.onChainEncryptionSecret,
           additionalValues,
           expectedOnChainAddress,
-          expectedSecretKeyType(parser),
+          expectedSecretKeyTypes(parser),
           options,
           signal,
         );
@@ -158,7 +168,7 @@ export class BrantaService implements IBrantaService {
     encryptionKey: string | undefined,
     additionalHashValues: string[],
     expectedOnChainAddress: string | undefined,
-    expectedOnChainType: DestinationType | undefined,
+    expectedOnChainTypes: ReadonlySet<DestinationType> | undefined,
     options: BrantaApiOptions | undefined,
     signal: AbortSignal | undefined,
   ): Promise<{ payments: Payment[]; verifyUrl: string }> {
@@ -172,7 +182,7 @@ export class BrantaService implements IBrantaService {
         encryptionKey,
         keys,
         expectedOnChainAddress,
-        expectedOnChainType,
+        expectedOnChainTypes,
       );
       let hashesBound = true;
       for (const value of additionalHashValues) {
@@ -254,16 +264,17 @@ export class BrantaService implements IBrantaService {
     encryptionKey: string | undefined,
     keys: Record<string, string>,
     expectedOnChainAddress?: string,
-    expectedOnChainType?: DestinationType,
+    expectedOnChainTypes?: ReadonlySet<DestinationType>,
   ): Promise<boolean> {
     let onChainBound = expectedOnChainAddress === undefined;
+    let decryptedExpectedRail = false;
     for (const destination of payment.destinations) {
       if (destination.isEncrypted === false) continue;
       destination.isEncrypted = true;
 
       if (destination.type === undefined || !isSecretKeyAddressType(destination.type)) continue;
-      // Other secret-key rails on the same payment are not part of this QR's swap check.
-      if (expectedOnChainType !== undefined && destination.type !== expectedOnChainType) continue;
+      // Outside this QR's rail family (e.g. bitcoin when scanning pol:) — leave encrypted.
+      if (expectedOnChainTypes !== undefined && !expectedOnChainTypes.has(destination.type)) continue;
       if (encryptionKey === undefined) continue;
       let decrypted: string;
       try {
@@ -278,8 +289,10 @@ export class BrantaService implements IBrantaService {
         // Key didn't match this destination — leave it encrypted.
         continue;
       }
+      decryptedExpectedRail = true;
+      // Match-if-any within the family: a sibling rail with a different address stays encrypted.
       if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
-        throw new TamperedError();
+        continue;
       }
       if (expectedOnChainAddress !== undefined) onChainBound = true;
       destination.value = decrypted;
@@ -288,6 +301,10 @@ export class BrantaService implements IBrantaService {
         keys[destination.id] = encryptionKey;
       }
       await this.tryDecryptMetadata(payment, destination, encryptionKey);
+    }
+    // Tampered only when a family rail decrypted and none matched the scanned address.
+    if (expectedOnChainAddress !== undefined && !onChainBound && decryptedExpectedRail) {
+      throw new TamperedError();
     }
     return onChainBound;
   }
