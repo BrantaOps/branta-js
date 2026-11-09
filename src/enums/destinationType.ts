@@ -4,16 +4,18 @@ export const DestinationType = {
   ArkAddress: 'ark_address',
   SilentPayment: 'silent_payment',
   UsdtPolygon: 'usdt_polygon',
+  UsdcPolygon: 'usdc_polygon',
 } as const;
 
 export type DestinationType = (typeof DestinationType)[keyof typeof DestinationType];
 
 /**
  * Polygon EVM secret-key rails. `pol:` verify binds any member of this family
- * (match-if-any). Add `usdc_polygon` here when that type ships.
+ * (match-if-any).
  */
 export const POLYGON_EVM_DESTINATION_TYPES: readonly DestinationType[] = [
   DestinationType.UsdtPolygon,
+  DestinationType.UsdcPolygon,
 ];
 
 export const isPolygonEvmDestinationType = (type: DestinationType): boolean =>

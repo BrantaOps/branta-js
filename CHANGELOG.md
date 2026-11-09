@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `DestinationType.UsdcPolygon` for Polygon USDC. Same secret-key encrypt / `pol:` verify path as `usdt_polygon`. Token is the destination type on the payment; `pol:` remains the Polygon EVM scheme for both.
+
 ### Changed
-- `pol:` is the Polygon EVM scheme family, not USDT-only. `verify()` binds any `POLYGON_EVM_DESTINATION_TYPES` member whose decrypted address matches the QR (match-if-any). Membership is `{usdt_polygon}` today; `usdc_polygon` joins that list when the type ships. A swapped address still returns `tampered` when a family rail decrypts and none match. Bitcoin remains a singleton rail outside this family.
+- `POLYGON_EVM_DESTINATION_TYPES` is `{usdt_polygon, usdc_polygon}`. `verify()` of a `pol:` URI binds any family member whose decrypted address matches (match-if-any).
 
 ## [4.1.0] - 2026-11-09
 
