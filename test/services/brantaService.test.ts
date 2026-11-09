@@ -39,6 +39,13 @@ const Secret = 'test-secret';
 const brantaBitcoinLookup = (secret = Secret) =>
   `bitcoin:${BitcoinAddress}?branta_id=${encodeURIComponent(EncryptedBitcoinAddress)}&branta_secret=${encodeURIComponent(secret)}`;
 
+const UsdtPolygonAddress = '0x278297528c32eCa01295B0d2135984d3442ec963';
+const UsdtPolygonAddressLower = UsdtPolygonAddress.toLowerCase();
+const SwappedUsdtPolygonAddress = '0x1111111111111111111111111111111111111111';
+const EncryptedUsdtPolygonAddress = 'encrypted-usdt-polygon-address';
+const brantaUsdtPolygonLookup = (address = UsdtPolygonAddress, secret = Secret) =>
+  `pol:${address}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(EncryptedUsdtPolygonAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+
 const Bolt11Invoice = 'lnbc100n1ptest';
 const EncryptedBolt11 = 'encrypted-bolt11-value';
 
@@ -77,11 +84,13 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
   const encrypt = jest.fn<EncryptFn>().mockImplementation(async (value, secret) => {
     if (value === Bolt11Invoice && secret === Bolt11Hash) return EncryptedBolt11;
     if (value === BitcoinAddress && secret === Secret) return EncryptedBitcoinAddress;
+    if (value === UsdtPolygonAddress && secret === Secret) return EncryptedUsdtPolygonAddress;
     if (value === ArkAddress && secret === ArkHash) return EncryptedArkAddress;
     return '';
   });
   const decrypt = jest.fn<DecryptFn>().mockImplementation(async (encryptedValue, secret) => {
     if (encryptedValue === EncryptedBitcoinAddress && secret === Secret) return BitcoinAddress;
+    if (encryptedValue === EncryptedUsdtPolygonAddress && secret === Secret) return UsdtPolygonAddress;
     if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) return Bolt11Invoice;
     if (encryptedValue === EncryptedArkAddress && secret === ArkHash) return ArkAddress;
     return '';
@@ -100,6 +109,9 @@ const plainBitcoinPayment = (): Payment => ({
 
 const encryptedBitcoinPayment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedBitcoinAddress, DestinationType.BitcoinAddress).build();
+
+const encryptedUsdtPolygonPayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdtPolygonAddress, DestinationType.UsdtPolygon).build();
 
 const encryptedBolt11Payment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).build();
@@ -154,6 +166,51 @@ describe('BrantaService', () => {
 
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedBitcoinAddress, undefined, undefined);
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
+    });
+
+    test('verify_polUsdtUri_usesBrantaParamsAndIgnoresAmountQuery', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
+        return [];
+      });
+
+      const { payments } = expectMatch(await service.verify(brantaUsdtPolygonLookup()));
+
+      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedUsdtPolygonAddress, undefined, undefined);
+      expect(payments[0]!.destinations[0]!.value).toBe(UsdtPolygonAddress);
+      expect(payments[0]!.destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
+    });
+
+    test('verify_polUsdtUri_caseInsensitiveAddressMatch', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
+        return [];
+      });
+
+      expectMatch(await service.verify(brantaUsdtPolygonLookup(UsdtPolygonAddressLower)));
+    });
+
+    test('verify_polUsdtUri_swappedAddress_isTampered', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
+        return [];
+      });
+
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+    });
+
+    test('verify_bareUsdtAddress_returnsUnknown', async () => {
+      const result = await service.verify(UsdtPolygonAddress);
+
+      expectUnknown(result);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('verify_polUriWithoutBrantaParams_returnsUnknown', async () => {
+      const result = await service.verify(`pol:${UsdtPolygonAddress}?value=50&currency=USD`);
+
+      expectUnknown(result);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('verify_bareBitcoinUri_returnsEmptyList', async () => {
@@ -786,6 +843,34 @@ describe('BrantaService', () => {
       expect(aesMock.encrypt).toHaveBeenCalledWith(Bolt11Invoice, Bolt11Hash, true);
       expect(payment.destinations[0]!.value).toBe(Bolt11Invoice);
       expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBolt11);
+    });
+
+    test('addPayment_encryptsUsdtPolygonWithSecret', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(UsdtPolygonAddress, DestinationType.UsdtPolygon)
+        .build();
+      const id = payment.destinations[0]!.id!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedUsdtPolygonAddress, DestinationType.UsdtPolygon)
+        .build();
+      responsePayment.destinations[0]!.id = id;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+
+      await service.addPayment(payment);
+
+      expect(aesMock.encrypt).toHaveBeenCalledWith(UsdtPolygonAddress, Secret, false);
+      expect(payment.destinations[0]!.value).toBe(UsdtPolygonAddress);
+      expect(submittedPayment().destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedUsdtPolygonAddress);
+    });
+
+    test('addPayment_usdtPolygonWithoutExplicitType_cannotBeEncrypted', async () => {
+      const payment = new PaymentBuilder().addDestination(UsdtPolygonAddress).build();
+
+      await expect(service.addPayment(payment)).rejects.toBeInstanceOf(BrantaPaymentException);
+      expect(clientMock.postPayment).not.toHaveBeenCalled();
     });
 
     test('addPayment_encryptsBitcoinAddressWithSecret', async () => {

@@ -29,6 +29,7 @@ describe('PaymentBuilder', () => {
     [DestinationType.Bolt11, 'bolt11'],
     [DestinationType.ArkAddress, 'ark_address'],
     [DestinationType.SilentPayment, 'silent_payment'],
+    [DestinationType.UsdtPolygon, 'usdt_polygon'],
   ])('destinationType_serializesToCorrectJsonString (%s)', (type, expected) => {
     const destination = { value: 'addr', type } as const;
     const apiObject = destinationToApi(destination);
