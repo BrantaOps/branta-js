@@ -3,7 +3,7 @@ import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../classes/aesEncryption.js';
 import { AesEncryptionService } from '../classes/aesEncryptionService.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../enums/brantaEnvironment.js';
-import { DestinationType } from '../enums/destinationType.js';
+import { DestinationType, isSecretKeyAddressType } from '../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../exceptions/incompleteError.js';
 import {
@@ -48,13 +48,18 @@ const copyPayment = (payment: Payment): Payment => ({
 const addressesMatch = (a: string, b: string): boolean => {
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
   if (isBech32(a) && isBech32(b)) return a.toLowerCase() === b.toLowerCase();
+  if (a.startsWith('0x') && b.startsWith('0x')) return a.toLowerCase() === b.toLowerCase();
   return a === b;
 };
 
+const secretKeyDestinations = (parser: QRParser) =>
+  parser.destinations.filter(
+    (d) => d.type !== undefined && isSecretKeyAddressType(d.type) && d.value.trim() !== '',
+  );
+
+/** Visible secret-key address in the QR, if any. Multiple must agree or the QR is tampered. */
 const uniformOnChainAddress = (parser: QRParser): string | undefined => {
-  const addresses = parser.destinations
-    .filter((d) => d.type === DestinationType.BitcoinAddress && d.value.trim() !== '')
-    .map((d) => d.value);
+  const addresses = secretKeyDestinations(parser).map((d) => d.value);
   if (addresses.length === 0) return undefined;
   const first = addresses[0]!;
   for (const address of addresses.slice(1)) {
@@ -64,6 +69,10 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   }
   return first;
 };
+
+/** Rail type for that visible address — swap-check only this type on the payment record. */
+const expectedSecretKeyType = (parser: QRParser): DestinationType | undefined =>
+  secretKeyDestinations(parser)[0]?.type;
 
 export interface BrantaServiceOptions extends BrantaApiOptions {
   environment: BrantaEnvironment;
@@ -119,6 +128,7 @@ export class BrantaService implements IBrantaService {
           parser.onChainEncryptionSecret,
           additionalValues,
           expectedOnChainAddress,
+          expectedSecretKeyType(parser),
           options,
           signal,
         );
@@ -148,6 +158,7 @@ export class BrantaService implements IBrantaService {
     encryptionKey: string | undefined,
     additionalHashValues: string[],
     expectedOnChainAddress: string | undefined,
+    expectedOnChainType: DestinationType | undefined,
     options: BrantaApiOptions | undefined,
     signal: AbortSignal | undefined,
   ): Promise<{ payments: Payment[]; verifyUrl: string }> {
@@ -161,6 +172,7 @@ export class BrantaService implements IBrantaService {
         encryptionKey,
         keys,
         expectedOnChainAddress,
+        expectedOnChainType,
       );
       let hashesBound = true;
       for (const value of additionalHashValues) {
@@ -242,13 +254,16 @@ export class BrantaService implements IBrantaService {
     encryptionKey: string | undefined,
     keys: Record<string, string>,
     expectedOnChainAddress?: string,
+    expectedOnChainType?: DestinationType,
   ): Promise<boolean> {
     let onChainBound = expectedOnChainAddress === undefined;
     for (const destination of payment.destinations) {
       if (destination.isEncrypted === false) continue;
       destination.isEncrypted = true;
 
-      if (destination.type !== DestinationType.BitcoinAddress) continue;
+      if (destination.type === undefined || !isSecretKeyAddressType(destination.type)) continue;
+      // Other secret-key rails on the same payment are not part of this QR's swap check.
+      if (expectedOnChainType !== undefined && destination.type !== expectedOnChainType) continue;
       if (encryptionKey === undefined) continue;
       let decrypted: string;
       try {
@@ -313,7 +328,7 @@ export class BrantaService implements IBrantaService {
       const type = destination.type ?? detectDestinationType(destination.value);
       if (destination.type === undefined && type !== undefined) destination.type = type;
 
-      if (type === DestinationType.BitcoinAddress) {
+      if (type !== undefined && isSecretKeyAddressType(type)) {
         destination.value = await this.aesEncryption.encrypt(destination.value, secret, this.secretGenerator.deterministicNonce);
         encryptedToKey[destination.value] = secret;
         if (dek !== undefined) {

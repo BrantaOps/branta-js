@@ -55,6 +55,7 @@ const detectDestinationType = (value: string): DestinationType | undefined => {
 
 const getDestinationType = (text: string): DestinationType | undefined => {
   if (startsWithI(text, 'bitcoin:')) return DestinationType.BitcoinAddress;
+  if (startsWithI(text, 'pol:')) return DestinationType.UsdtPolygon;
   if (startsWithI(text, 'lightning:')) {
     const dest = getDestination(text);
     if (dest && isBolt11(dest)) return DestinationType.Bolt11;
@@ -100,6 +101,17 @@ export class QRParser {
     }
 
     const scheme = uri.protocol.replace(/:$/, '').toLowerCase();
+    if (scheme === 'pol') {
+      const dest = getDestination(text);
+      if (dest !== undefined) {
+        this.destinations.push({ value: dest, type: DestinationType.UsdtPolygon });
+      }
+      const queryParams = parseQueryString(uri.search);
+      this.onChainEncryptionText = queryParams.get('branta_id');
+      this.onChainEncryptionSecret = queryParams.get('branta_secret');
+      return;
+    }
+
     if (scheme === 'bitcoin' || scheme === 'lightning') {
       const dest = getDestination(text);
       if (dest !== undefined) {

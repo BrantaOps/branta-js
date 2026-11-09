@@ -101,6 +101,29 @@ describe('QRParser', () => {
     expect(result.destinationType).toBeUndefined();
   });
 
+  test('qrParser_polUri_setsUsdtPolygonTypeAndDestination', () => {
+    const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
+    const result = new QRParser(`pol:${address}`);
+
+    expect(result.destination).toBe(address);
+    expect(result.destinationType).toBe(DestinationType.UsdtPolygon);
+    expect(result.onChainEncryptionText).toBeUndefined();
+    expect(result.onChainEncryptionSecret).toBeUndefined();
+  });
+
+  test('qrParser_polUriWithAmountAndBrantaParams_ignoresExtrasAndSetsBrantaParams', () => {
+    const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
+    const result = new QRParser(
+      `pol:${address}?value=50&user=send&currency=USD&branta_id=abc%2Bdef%3D&branta_secret=1234`,
+    );
+
+    expect(result.destination).toBe(address);
+    expect(result.destinationType).toBe(DestinationType.UsdtPolygon);
+    expect(result.destinations).toHaveLength(1);
+    expect(result.onChainEncryptionText).toBe('abc+def=');
+    expect(result.onChainEncryptionSecret).toBe('1234');
+  });
+
   test('qrParser_arkAddress_setsArkAddressType', () => {
     const result = new QRParser('ark1qqjqtest');
 

@@ -37,7 +37,7 @@ switch (result.status) {
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. bolt11, Ark, and silent payments resolve from the value. A bare address is `unknown`.
+On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Polygon USDT needs a `pol:` URI with the same params. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
 
 Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 
