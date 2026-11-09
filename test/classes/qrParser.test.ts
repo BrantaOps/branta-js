@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { DestinationType } from '../../src/enums/destinationType.js';
+import { DestinationType, POLYGON_EVM_SCHEME_TYPE } from '../../src/enums/destinationType.js';
 import { QRParser } from '../../src/classes/qrParser.js';
 
 describe('QRParser', () => {
@@ -101,12 +101,12 @@ describe('QRParser', () => {
     expect(result.destinationType).toBeUndefined();
   });
 
-  test('qrParser_polUri_setsUsdtPolygonTypeAndDestination', () => {
+  test('qrParser_polUri_setsPolygonEvmSchemeTypeAndDestination', () => {
     const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
     const result = new QRParser(`pol:${address}`);
 
     expect(result.destination).toBe(address);
-    expect(result.destinationType).toBe(DestinationType.UsdtPolygon);
+    expect(result.destinationType).toBe(POLYGON_EVM_SCHEME_TYPE);
     expect(result.onChainEncryptionText).toBeUndefined();
     expect(result.onChainEncryptionSecret).toBeUndefined();
   });
@@ -118,7 +118,7 @@ describe('QRParser', () => {
     );
 
     expect(result.destination).toBe(address);
-    expect(result.destinationType).toBe(DestinationType.UsdtPolygon);
+    expect(result.destinationType).toBe(POLYGON_EVM_SCHEME_TYPE);
     expect(result.destinations).toHaveLength(1);
     expect(result.onChainEncryptionText).toBe('abc+def=');
     expect(result.onChainEncryptionSecret).toBe('1234');

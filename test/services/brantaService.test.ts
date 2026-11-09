@@ -41,7 +41,7 @@ const brantaBitcoinLookup = (secret = Secret) =>
 
 const UsdtPolygonAddress = '0x278297528c32eCa01295B0d2135984d3442ec963';
 const UsdtPolygonAddressLower = UsdtPolygonAddress.toLowerCase();
-const SwappedUsdtPolygonAddress = '0x1111111111111111111111111111111111111111';
+const SwappedPolygonEvmAddress = '0x1111111111111111111111111111111111111111';
 const SiblingUsdtPolygonAddress = '0x2222222222222222222222222222222222222222';
 const EncryptedUsdtPolygonAddress = 'encrypted-usdt-polygon-address';
 const EncryptedSiblingUsdtPolygonAddress = 'encrypted-sibling-usdt-polygon-address';
@@ -232,7 +232,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
     test('verify_bareUsdtAddress_returnsUnknown', async () => {
@@ -283,7 +283,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
     test('verify_polUri_matchIfAny_withinPolygonFamily_ignoresSiblingDifferentAddress', async () => {
@@ -306,7 +306,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
     test('verify_polUsdcUri_usesBrantaParamsAndBindsUsdcRail', async () => {
@@ -328,7 +328,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdcPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdcPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
     test('verify_polUri_matchIfAny_bindsUsdtAndLeavesSiblingUsdcEncrypted', async () => {

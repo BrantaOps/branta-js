@@ -18,6 +18,9 @@ export const POLYGON_EVM_DESTINATION_TYPES: readonly DestinationType[] = [
   DestinationType.UsdcPolygon,
 ];
 
+/** Type stamped on parsed `pol:` URIs. `verify` expands this to the full family. */
+export const POLYGON_EVM_SCHEME_TYPE: DestinationType = POLYGON_EVM_DESTINATION_TYPES[0]!;
+
 export const isPolygonEvmDestinationType = (type: DestinationType): boolean =>
   (POLYGON_EVM_DESTINATION_TYPES as readonly DestinationType[]).includes(type);
 
@@ -27,7 +30,8 @@ export const isSecretKeyAddressType = (type: DestinationType): boolean =>
 
 /**
  * Secret-key destination types a QR of this typed rail may bind.
- * `pol:` (typed as a Polygon EVM member) expands to the whole Polygon family.
+ * A `pol:` stamp (`POLYGON_EVM_SCHEME_TYPE` or any family member) expands to the
+ * whole Polygon EVM family.
  */
 export const secretKeyTypesForQrDestinationType = (
   type: DestinationType,

@@ -1,6 +1,7 @@
 import {
   DestinationType,
   POLYGON_EVM_DESTINATION_TYPES,
+  POLYGON_EVM_SCHEME_TYPE,
   isPolygonEvmDestinationType,
   isSecretKeyAddressType,
   secretKeyTypesForQrDestinationType,
@@ -15,6 +16,13 @@ describe('destinationType', () => {
     expect(isPolygonEvmDestinationType(DestinationType.UsdtPolygon)).toBe(true);
     expect(isPolygonEvmDestinationType(DestinationType.UsdcPolygon)).toBe(true);
     expect(isPolygonEvmDestinationType(DestinationType.BitcoinAddress)).toBe(false);
+  });
+
+  test('polygonEvmSchemeType_isFamilyMemberAndExpandsOnVerify', () => {
+    expect(POLYGON_EVM_DESTINATION_TYPES).toContain(POLYGON_EVM_SCHEME_TYPE);
+    expect(secretKeyTypesForQrDestinationType(POLYGON_EVM_SCHEME_TYPE)).toEqual(
+      POLYGON_EVM_DESTINATION_TYPES,
+    );
   });
 
   test('secretKeyTypesForQr_polMember_expandsToPolygonFamily', () => {
