@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BRANTA_INTEGRATION_METRICS_TOKEN: ${{ secrets.BRANTA_INTEGRATION_METRICS_TOKEN }}
+      # Optional: enables staging usdt_polygon addPayment → verify round-trip.
+      BRANTA_API_KEY: ${{ secrets.BRANTA_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,5 +26,5 @@ jobs:
             echo "Set the BRANTA_INTEGRATION_METRICS_TOKEN Actions secret to the same value as Guardrail."
             exit 1
           fi
-      - name: Example QR codes against staging and production
+      - name: Live Guardrail integration
         run: npm run test:integration
