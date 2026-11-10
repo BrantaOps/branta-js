@@ -3,11 +3,7 @@ import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../classes/aesEncryption.js';
 import { AesEncryptionService } from '../classes/aesEncryptionService.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../enums/brantaEnvironment.js';
-import {
-  DestinationType,
-  isSecretKeyAddressType,
-  secretKeyTypesForQrDestinationType,
-} from '../enums/destinationType.js';
+import { DestinationType, isSecretKeyAddressType } from '../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../exceptions/incompleteError.js';
 import {
@@ -57,9 +53,7 @@ const addressesMatch = (a: string, b: string): boolean => {
 };
 
 const secretKeyDestinations = (parser: QRParser) =>
-  parser.destinations.filter(
-    (d) => d.type !== undefined && isSecretKeyAddressType(d.type) && d.value.trim() !== '',
-  );
+  parser.destinations.filter((d) => d.secretKey === true && d.value.trim() !== '');
 
 /** Visible secret-key address in the QR, if any. Multiple must agree or the QR is tampered. */
 const uniformOnChainAddress = (parser: QRParser): string | undefined => {
@@ -74,14 +68,12 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   return first;
 };
 
-/**
- * Secret-key types this QR may bind. `pol:` expands to the Polygon EVM family;
- * bitcoin stays a singleton. Swap-check only these types (match-if-any).
- */
+/** Scheme → rail family from the parser (match-if-any within the set). */
 const expectedSecretKeyTypes = (parser: QRParser): ReadonlySet<DestinationType> | undefined => {
-  const type = secretKeyDestinations(parser)[0]?.type;
-  if (type === undefined) return undefined;
-  return new Set(secretKeyTypesForQrDestinationType(type));
+  if (parser.expectedSecretKeyTypes === undefined || parser.expectedSecretKeyTypes.length === 0) {
+    return undefined;
+  }
+  return new Set(parser.expectedSecretKeyTypes);
 };
 
 export interface BrantaServiceOptions extends BrantaApiOptions {
