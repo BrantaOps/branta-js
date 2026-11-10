@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 - `DestinationType.UsdcPolygon` for Polygon USDC. Same secret-key encrypt / `pol:` verify path as `usdt_polygon`. Token is the destination type on the payment; `pol:` remains the Polygon EVM scheme for both.
+- `verify()` `match` includes `matchedDestinations`: the rails this scan bound (plaintext + `type`). Wallets should send from that list instead of filtering `payments[].destinations`.
 
 ### Changed
 - `POLYGON_EVM_DESTINATION_TYPES` is `{usdt_polygon, usdc_polygon}`. `verify()` of a `pol:` URI binds any family member whose decrypted address matches (match-if-any).

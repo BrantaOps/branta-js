@@ -32,10 +32,20 @@ class TamperedError extends Error {
   }
 }
 
+const matchedDestinationsFrom = (payments: Payment[]) =>
+  payments.flatMap((payment) =>
+    payment.destinations.filter((destination) => destination.isEncrypted === false),
+  );
+
 const toVerifyResult = (payments: Payment[], verifyUrl: string): VerifyResult =>
   payments.length === 0
     ? { status: VerifyStatus.Unknown, verifyUrl }
-    : { status: VerifyStatus.Match, payments, verifyUrl };
+    : {
+        status: VerifyStatus.Match,
+        payments,
+        matchedDestinations: matchedDestinationsFrom(payments),
+        verifyUrl,
+      };
 
 // Encrypt and post this copy. A failed post must leave the caller's Payment reusable.
 const copyPayment = (payment: Payment): Payment => ({
