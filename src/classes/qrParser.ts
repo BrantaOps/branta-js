@@ -1,9 +1,12 @@
-import { DestinationType } from '../enums/destinationType.js';
+import { DestinationType, POLYGON_EVM_DESTINATION_TYPES } from '../enums/destinationType.js';
 import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
+  /** Known rail type when the scheme or payload names one (e.g. bitcoin). Not set for `pol:`. */
   type?: DestinationType;
+  /** Visible address that participates in the secret-key swap check. */
+  secretKey?: boolean;
 }
 
 const COLON_TO_QUESTION = /(?<=:)[^?]*/;
@@ -55,9 +58,6 @@ const detectDestinationType = (value: string): DestinationType | undefined => {
 
 const getDestinationType = (text: string): DestinationType | undefined => {
   if (startsWithI(text, 'bitcoin:')) return DestinationType.BitcoinAddress;
-  // `pol:` is the Polygon EVM scheme; verify binds any POLYGON_EVM family type.
-  // Tagged as UsdtPolygon until another family member exists for QR typing.
-  if (startsWithI(text, 'pol:')) return DestinationType.UsdtPolygon;
   if (startsWithI(text, 'lightning:')) {
     const dest = getDestination(text);
     if (dest && isBolt11(dest)) return DestinationType.Bolt11;
@@ -90,6 +90,11 @@ export class QRParser {
   readonly destinations: QrDestination[] = [];
   onChainEncryptionText?: string;
   onChainEncryptionSecret?: string;
+  /**
+   * Destination types `verify` may bind for this QR's scheme (match-if-any).
+   * Set from the URI scheme — not from a token stamped on the address.
+   */
+  expectedSecretKeyTypes?: readonly DestinationType[];
   /** A payable instruction this SDK cannot bind to a decrypted destination. */
   hasUnverifiableInstruction = false;
 
@@ -104,10 +109,11 @@ export class QRParser {
 
     const scheme = uri.protocol.replace(/:$/, '').toLowerCase();
     if (scheme === 'pol') {
-      // Polygon EVM family — see POLYGON_EVM_DESTINATION_TYPES / secretKeyTypesForQrDestinationType.
       const dest = getDestination(text);
       if (dest !== undefined) {
-        this.destinations.push({ value: dest, type: DestinationType.UsdtPolygon });
+        // Address only — token comes from the matched payment destination after verify.
+        this.destinations.push({ value: dest, secretKey: true });
+        this.expectedSecretKeyTypes = POLYGON_EVM_DESTINATION_TYPES;
       }
       const queryParams = parseQueryString(uri.search);
       this.onChainEncryptionText = queryParams.get('branta_id');
@@ -119,7 +125,11 @@ export class QRParser {
       const dest = getDestination(text);
       if (dest !== undefined) {
         const destType = getDestinationType(text);
-        this.destinations.push({ value: dest, type: destType });
+        this.destinations.push({
+          value: dest,
+          type: destType,
+          secretKey: destType === DestinationType.BitcoinAddress,
+        });
         if (dest !== '' && destType !== DestinationType.BitcoinAddress && getDerivedKeyType(dest) === undefined) {
           this.hasUnverifiableInstruction = true;
         }
@@ -135,7 +145,7 @@ export class QRParser {
           this.hasUnverifiableInstruction = true;
           return;
         }
-        this.destinations.push({ value, type });
+        this.destinations.push({ value, type, secretKey: onChain });
       };
 
       addBindable(queryParams.get('lightning'), detectDestinationType(queryParams.get('lightning') ?? ''), false);
@@ -148,6 +158,9 @@ export class QRParser {
       if (queryParams.get('lno') !== undefined) this.hasUnverifiableInstruction = true;
       if (queryParams.get('pay') !== undefined) this.hasUnverifiableInstruction = true;
 
+      if (this.destinations.some((d) => d.secretKey)) {
+        this.expectedSecretKeyTypes = [DestinationType.BitcoinAddress];
+      }
       return;
     }
 

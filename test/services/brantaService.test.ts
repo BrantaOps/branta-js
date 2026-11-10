@@ -41,12 +41,16 @@ const brantaBitcoinLookup = (secret = Secret) =>
 
 const UsdtPolygonAddress = '0x278297528c32eCa01295B0d2135984d3442ec963';
 const UsdtPolygonAddressLower = UsdtPolygonAddress.toLowerCase();
-const SwappedUsdtPolygonAddress = '0x1111111111111111111111111111111111111111';
+const SwappedPolygonEvmAddress = '0x1111111111111111111111111111111111111111';
 const SiblingUsdtPolygonAddress = '0x2222222222222222222222222222222222222222';
 const EncryptedUsdtPolygonAddress = 'encrypted-usdt-polygon-address';
 const EncryptedSiblingUsdtPolygonAddress = 'encrypted-sibling-usdt-polygon-address';
+const UsdcPolygonAddress = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B';
+const EncryptedUsdcPolygonAddress = 'encrypted-usdc-polygon-address';
 const brantaUsdtPolygonLookup = (address = UsdtPolygonAddress, secret = Secret) =>
   `pol:${address}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(EncryptedUsdtPolygonAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+const brantaUsdcPolygonLookup = (address = UsdcPolygonAddress, secret = Secret) =>
+  `pol:${address}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(EncryptedUsdcPolygonAddress)}&branta_secret=${encodeURIComponent(secret)}`;
 
 const Bolt11Invoice = 'lnbc100n1ptest';
 const EncryptedBolt11 = 'encrypted-bolt11-value';
@@ -88,6 +92,7 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
     if (value === BitcoinAddress && secret === Secret) return EncryptedBitcoinAddress;
     if (value === UsdtPolygonAddress && secret === Secret) return EncryptedUsdtPolygonAddress;
     if (value === SiblingUsdtPolygonAddress && secret === Secret) return EncryptedSiblingUsdtPolygonAddress;
+    if (value === UsdcPolygonAddress && secret === Secret) return EncryptedUsdcPolygonAddress;
     if (value === ArkAddress && secret === ArkHash) return EncryptedArkAddress;
     return '';
   });
@@ -97,6 +102,7 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
     if (encryptedValue === EncryptedSiblingUsdtPolygonAddress && secret === Secret) {
       return SiblingUsdtPolygonAddress;
     }
+    if (encryptedValue === EncryptedUsdcPolygonAddress && secret === Secret) return UsdcPolygonAddress;
     if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) return Bolt11Invoice;
     if (encryptedValue === EncryptedArkAddress && secret === ArkHash) return ArkAddress;
     return '';
@@ -132,6 +138,15 @@ const encryptedDualUsdtPolygonPayment = (): Payment =>
   new PaymentBuilder()
     .addDestination(EncryptedSiblingUsdtPolygonAddress, DestinationType.UsdtPolygon)
     .addDestination(EncryptedUsdtPolygonAddress, DestinationType.UsdtPolygon)
+    .build();
+
+const encryptedUsdcPolygonPayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdcPolygonAddress, DestinationType.UsdcPolygon).build();
+
+const encryptedUsdtAndUsdcPolygonPayment = (): Payment =>
+  new PaymentBuilder()
+    .addDestination(EncryptedUsdtPolygonAddress, DestinationType.UsdtPolygon)
+    .addDestination(EncryptedUsdcPolygonAddress, DestinationType.UsdcPolygon)
     .build();
 
 const encryptedBolt11Payment = (): Payment =>
@@ -195,11 +210,18 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { payments } = expectMatch(await service.verify(brantaUsdtPolygonLookup()));
+      const { payments, matchedDestinations } = expectMatch(await service.verify(brantaUsdtPolygonLookup()));
 
       expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedUsdtPolygonAddress, undefined, undefined);
       expect(payments[0]!.destinations[0]!.value).toBe(UsdtPolygonAddress);
       expect(payments[0]!.destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
+      expect(matchedDestinations).toEqual([
+        expect.objectContaining({
+          value: UsdtPolygonAddress,
+          type: DestinationType.UsdtPolygon,
+          isEncrypted: false,
+        }),
+      ]);
     });
 
     test('verify_polUsdtUri_caseInsensitiveAddressMatch', async () => {
@@ -217,7 +239,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
     test('verify_bareUsdtAddress_returnsUnknown', async () => {
@@ -240,12 +262,15 @@ describe('BrantaService', () => {
         return [];
       });
 
-      const { payments } = expectMatch(await service.verify(brantaUsdtPolygonLookup()));
+      const { payments, matchedDestinations } = expectMatch(await service.verify(brantaUsdtPolygonLookup()));
 
       expect(payments[0]!.destinations[0]!.value).toBe(EncryptedBitcoinAddress);
       expect(payments[0]!.destinations[0]!.isEncrypted).not.toBe(false);
       expect(payments[0]!.destinations[1]!.value).toBe(UsdtPolygonAddress);
       expect(payments[0]!.destinations[1]!.type).toBe(DestinationType.UsdtPolygon);
+      expect(matchedDestinations).toHaveLength(1);
+      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtPolygon);
+      expect(matchedDestinations[0]!.value).toBe(UsdtPolygonAddress);
     });
 
     test('verify_bitcoinUri_ignoresSiblingUsdtPolygonRailOnSamePayment', async () => {
@@ -268,7 +293,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
     test('verify_polUri_matchIfAny_withinPolygonFamily_ignoresSiblingDifferentAddress', async () => {
@@ -291,7 +316,64 @@ describe('BrantaService', () => {
         return [];
       });
 
-      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedUsdtPolygonAddress)));
+      expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
+    });
+
+    test('verify_polUsdcUri_usesBrantaParamsAndBindsUsdcRail', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdcPolygonAddress) return [encryptedUsdcPolygonPayment()];
+        return [];
+      });
+
+      const { payments, matchedDestinations } = expectMatch(await service.verify(brantaUsdcPolygonLookup()));
+
+      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedUsdcPolygonAddress, undefined, undefined);
+      expect(payments[0]!.destinations[0]!.value).toBe(UsdcPolygonAddress);
+      expect(payments[0]!.destinations[0]!.type).toBe(DestinationType.UsdcPolygon);
+      expect(matchedDestinations).toEqual([
+        expect.objectContaining({
+          value: UsdcPolygonAddress,
+          type: DestinationType.UsdcPolygon,
+          isEncrypted: false,
+        }),
+      ]);
+    });
+
+    test('verify_polUsdcUri_swappedAddress_isTampered', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdcPolygonAddress) return [encryptedUsdcPolygonPayment()];
+        return [];
+      });
+
+      expectTampered(await service.verify(brantaUsdcPolygonLookup(SwappedPolygonEvmAddress)));
+    });
+
+    test('verify_polUri_matchIfAny_bindsUsdtAndLeavesSiblingUsdcEncrypted', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtAndUsdcPolygonPayment()];
+        return [];
+      });
+
+      const { payments } = expectMatch(await service.verify(brantaUsdtPolygonLookup()));
+
+      expect(payments[0]!.destinations[0]!.value).toBe(UsdtPolygonAddress);
+      expect(payments[0]!.destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
+      expect(payments[0]!.destinations[1]!.value).toBe(EncryptedUsdcPolygonAddress);
+      expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
+    });
+
+    test('verify_polUri_matchIfAny_bindsUsdcAndLeavesSiblingUsdtEncrypted', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdcPolygonAddress) return [encryptedUsdtAndUsdcPolygonPayment()];
+        return [];
+      });
+
+      const { payments } = expectMatch(await service.verify(brantaUsdcPolygonLookup()));
+
+      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedUsdtPolygonAddress);
+      expect(payments[0]!.destinations[0]!.isEncrypted).not.toBe(false);
+      expect(payments[0]!.destinations[1]!.value).toBe(UsdcPolygonAddress);
+      expect(payments[0]!.destinations[1]!.type).toBe(DestinationType.UsdcPolygon);
     });
 
     test('verify_bareBitcoinUri_returnsEmptyList', async () => {
@@ -945,6 +1027,27 @@ describe('BrantaService', () => {
       expect(payment.destinations[0]!.value).toBe(UsdtPolygonAddress);
       expect(submittedPayment().destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
       expect(submittedPayment().destinations[0]!.value).toBe(EncryptedUsdtPolygonAddress);
+    });
+
+    test('addPayment_encryptsUsdcPolygonWithSecret', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(UsdcPolygonAddress, DestinationType.UsdcPolygon)
+        .build();
+      const id = payment.destinations[0]!.id!;
+
+      const responsePayment = new PaymentBuilder()
+        .addDestination(EncryptedUsdcPolygonAddress, DestinationType.UsdcPolygon)
+        .build();
+      responsePayment.destinations[0]!.id = id;
+
+      clientMock.postPayment.mockResolvedValue(responsePayment);
+
+      await service.addPayment(payment);
+
+      expect(aesMock.encrypt).toHaveBeenCalledWith(UsdcPolygonAddress, Secret, false);
+      expect(payment.destinations[0]!.value).toBe(UsdcPolygonAddress);
+      expect(submittedPayment().destinations[0]!.type).toBe(DestinationType.UsdcPolygon);
+      expect(submittedPayment().destinations[0]!.value).toBe(EncryptedUsdcPolygonAddress);
     });
 
     test('addPayment_usdtPolygonWithoutExplicitType_cannotBeEncrypted', async () => {
