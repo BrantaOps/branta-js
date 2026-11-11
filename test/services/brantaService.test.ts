@@ -233,6 +233,15 @@ describe('BrantaService', () => {
       expectMatch(await service.verify(brantaUsdtPolygonLookup(UsdtPolygonAddressLower)));
     });
 
+    test('verify_polUsdtUri_0xPrefixCaseInsensitiveAddressMatch', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
+        return [];
+      });
+
+      expectMatch(await service.verify(brantaUsdtPolygonLookup(`0X${UsdtPolygonAddress.slice(2)}`)));
+    });
+
     test('verify_polUsdtUri_swappedAddress_isTampered', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
