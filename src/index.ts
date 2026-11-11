@@ -1,5 +1,16 @@
 export { BrantaEnvironment, BrantaEnvironmentUrls } from './enums/brantaEnvironment.js';
-export { DestinationType } from './enums/destinationType.js';
+export {
+  DestinationType,
+  POLYGON_EVM_DESTINATION_TYPES,
+  ETHEREUM_EVM_DESTINATION_TYPES,
+  BSC_EVM_DESTINATION_TYPES,
+  TRON_DESTINATION_TYPES,
+  TON_DESTINATION_TYPES,
+  SOLANA_DESTINATION_TYPES,
+  SECRET_KEY_URI_FAMILIES,
+  isPolygonEvmDestinationType,
+  isSecretKeyAddressType,
+} from './enums/destinationType.js';
 export type { BrantaApiOptions } from './classes/brantaApiOptions.js';
 export { BrantaPaymentException, BrantaPaymentExceptionReason } from './exceptions/brantaPaymentException.js';
 export { createNobleCryptoProvider } from './classes/nobleCryptoProvider.js';
