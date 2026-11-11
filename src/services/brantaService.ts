@@ -58,7 +58,9 @@ const copyPayment = (payment: Payment): Payment => ({
 const addressesMatch = (a: string, b: string): boolean => {
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
   if (isBech32(a) && isBech32(b)) return a.toLowerCase() === b.toLowerCase();
-  if (a.startsWith('0x') && b.startsWith('0x')) return a.toLowerCase() === b.toLowerCase();
+  if (a.toLowerCase().startsWith('0x') && b.toLowerCase().startsWith('0x')) {
+    return a.toLowerCase() === b.toLowerCase();
+  }
   return a === b;
 };
 
