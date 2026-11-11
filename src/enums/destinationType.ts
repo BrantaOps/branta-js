@@ -11,7 +11,6 @@ export const DestinationType = {
   UsdcBsc: 'usdc_bsc',
   UsdtTron: 'usdt_tron',
   UsdtTon: 'usdt_ton',
-  UsdcTon: 'usdc_ton',
   UsdtSolana: 'usdt_solana',
   UsdcSolana: 'usdc_solana',
 } as const;
@@ -41,7 +40,6 @@ export const TRON_DESTINATION_TYPES: readonly DestinationType[] = [DestinationTy
 
 export const TON_DESTINATION_TYPES: readonly DestinationType[] = [
   DestinationType.UsdtTon,
-  DestinationType.UsdcTon,
 ];
 
 export const SOLANA_DESTINATION_TYPES: readonly DestinationType[] = [
