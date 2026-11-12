@@ -1,6 +1,14 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { DestinationType, POLYGON_EVM_DESTINATION_TYPES } from '../../src/enums/destinationType.js';
+import {
+  DestinationType,
+  POLYGON_EVM_DESTINATION_TYPES,
+  ETHEREUM_EVM_DESTINATION_TYPES,
+  BSC_EVM_DESTINATION_TYPES,
+  TRON_DESTINATION_TYPES,
+  TON_DESTINATION_TYPES,
+  SOLANA_DESTINATION_TYPES,
+} from '../../src/enums/destinationType.js';
 import { QRParser } from '../../src/classes/qrParser.js';
 
 describe('QRParser', () => {
@@ -126,6 +134,25 @@ describe('QRParser', () => {
     expect(result.expectedSecretKeyTypes).toEqual(POLYGON_EVM_DESTINATION_TYPES);
     expect(result.onChainEncryptionText).toBe('abc+def=');
     expect(result.onChainEncryptionSecret).toBe('1234');
+  });
+
+  test.each([
+    ['eth', '0xBF5550253939187432Ef4dccE8089765d3DCb47f', ETHEREUM_EVM_DESTINATION_TYPES],
+    ['bsc', '0x55d398326f99059fF775485246999027B3197955', BSC_EVM_DESTINATION_TYPES],
+    ['tron', 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', TRON_DESTINATION_TYPES],
+    ['ton', 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by', TON_DESTINATION_TYPES],
+    ['sol', '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf', SOLANA_DESTINATION_TYPES],
+  ] as const)('qrParser_%sUri_setsAddressWithoutTokenType_andFamily', (scheme, address, family) => {
+    const result = new QRParser(
+      `${scheme}:${address}?branta_id=enc%2Bid&branta_secret=secret`,
+    );
+
+    expect(result.destination).toBe(address);
+    expect(result.destinationType).toBeUndefined();
+    expect(result.destinations[0]!.secretKey).toBe(true);
+    expect(result.expectedSecretKeyTypes).toEqual(family);
+    expect(result.onChainEncryptionText).toBe('enc+id');
+    expect(result.onChainEncryptionSecret).toBe('secret');
   });
 
   test('qrParser_arkAddress_setsArkAddressType', () => {

@@ -1,9 +1,9 @@
-import { DestinationType, POLYGON_EVM_DESTINATION_TYPES } from '../enums/destinationType.js';
+import { DestinationType, SECRET_KEY_URI_FAMILIES } from '../enums/destinationType.js';
 import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
-  /** Known rail type when the scheme or payload names one (e.g. bitcoin). Not set for `pol:`. */
+  /** Known rail type when the scheme or payload names one (e.g. bitcoin). Not set for chain URI schemes. */
   type?: DestinationType;
   /** Visible address that participates in the secret-key swap check. */
   secretKey?: boolean;
@@ -108,12 +108,13 @@ export class QRParser {
     }
 
     const scheme = uri.protocol.replace(/:$/, '').toLowerCase();
-    if (scheme === 'pol') {
+    const secretKeyFamily = SECRET_KEY_URI_FAMILIES[scheme];
+    if (secretKeyFamily !== undefined) {
       const dest = getDestination(text);
       if (dest !== undefined) {
         // Address only — token comes from the matched payment destination after verify.
         this.destinations.push({ value: dest, secretKey: true });
-        this.expectedSecretKeyTypes = POLYGON_EVM_DESTINATION_TYPES;
+        this.expectedSecretKeyTypes = secretKeyFamily;
       }
       const queryParams = parseQueryString(uri.search);
       this.onChainEncryptionText = queryParams.get('branta_id');
