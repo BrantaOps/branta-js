@@ -21,17 +21,6 @@ export const DestinationType = {
 
 export type DestinationType = (typeof DestinationType)[keyof typeof DestinationType];
 
-export const TRON_DESTINATION_TYPES: readonly DestinationType[] = [DestinationType.UsdtTron];
-
-export const TON_DESTINATION_TYPES: readonly DestinationType[] = [
-  DestinationType.UsdtTon,
-];
-
-export const SOLANA_DESTINATION_TYPES: readonly DestinationType[] = [
-  DestinationType.UsdtSolana,
-  DestinationType.UsdcSolana,
-];
-
 /**
  * EIP-681 `ethereum:<contract>@<chainId>/transfer` rails.
  * Chain id plus token contract select one destination type.
@@ -59,16 +48,18 @@ export const evmTokenType = (chainId: number, contract: string): DestinationType
   return EVM_TOKEN_RAILS.find((rail) => rail.chainId === chainId && rail.contract === needle)?.type;
 };
 
-/** URI scheme → secret-key destination family for verify (match-if-any). EVM rails use EIP-681, not this map. */
-export const SECRET_KEY_URI_FAMILIES: Readonly<Record<string, readonly DestinationType[]>> = {
-  tron: TRON_DESTINATION_TYPES,
-  ton: TON_DESTINATION_TYPES,
-  sol: SOLANA_DESTINATION_TYPES,
-};
+/**
+ * Address rails `addPayment` encrypts with one UUID.
+ * Tron, TON, and Solana stay here so POST still works. They have no verify URI.
+ */
+const UUID_SECRET_DESTINATION_TYPES: ReadonlySet<DestinationType> = new Set([
+  DestinationType.BitcoinAddress,
+  ...EVM_TOKEN_RAILS.map((rail) => rail.type),
+  DestinationType.UsdtTron,
+  DestinationType.UsdtTon,
+  DestinationType.UsdtSolana,
+  DestinationType.UsdcSolana,
+]);
 
 export const isSecretKeyAddressType = (type: DestinationType): boolean =>
-  type === DestinationType.BitcoinAddress ||
-  EVM_TOKEN_RAILS.some((rail) => rail.type === type) ||
-  Object.values(SECRET_KEY_URI_FAMILIES).some((family) =>
-    (family as readonly DestinationType[]).includes(type),
-  );
+  UUID_SECRET_DESTINATION_TYPES.has(type);

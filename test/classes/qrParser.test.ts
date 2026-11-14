@@ -1,12 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import {
-  DestinationType,
-  EVM_TOKEN_RAILS,
-  TRON_DESTINATION_TYPES,
-  TON_DESTINATION_TYPES,
-  SOLANA_DESTINATION_TYPES,
-} from '../../src/enums/destinationType.js';
+import { DestinationType, EVM_TOKEN_RAILS } from '../../src/enums/destinationType.js';
 import { QRParser } from '../../src/classes/qrParser.js';
 
 describe('QRParser', () => {
@@ -186,20 +180,19 @@ describe('QRParser', () => {
   });
 
   test.each([
-    ['tron', 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', TRON_DESTINATION_TYPES],
-    ['ton', 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by', TON_DESTINATION_TYPES],
-    ['sol', '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf', SOLANA_DESTINATION_TYPES],
-  ] as const)('qrParser_%sUri_setsAddressWithoutTokenType_andFamily', (scheme, address, family) => {
+    ['tron', 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb'],
+    ['ton', 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by'],
+    ['sol', '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf'],
+  ] as const)('qrParser_%sUri_doesNotBind', (scheme, address) => {
     const result = new QRParser(
       `${scheme}:${address}?branta_id=enc%2Bid&branta_secret=secret`,
     );
 
-    expect(result.destination).toBe(address);
     expect(result.destinationType).toBeUndefined();
-    expect(result.destinations[0]!.secretKey).toBe(true);
-    expect(result.expectedSecretKeyTypes).toEqual(family);
-    expect(result.onChainEncryptionText).toBe('enc+id');
-    expect(result.onChainEncryptionSecret).toBe('secret');
+    expect(result.expectedSecretKeyTypes).toBeUndefined();
+    expect(result.onChainEncryptionText).toBeUndefined();
+    expect(result.onChainEncryptionSecret).toBeUndefined();
+    expect(result.destinations[0]!.secretKey).toBeUndefined();
   });
 
   test('qrParser_arkAddress_setsArkAddressType', () => {

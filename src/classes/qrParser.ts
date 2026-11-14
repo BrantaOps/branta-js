@@ -1,9 +1,9 @@
-import { DestinationType, SECRET_KEY_URI_FAMILIES, evmTokenType } from '../enums/destinationType.js';
+import { DestinationType, evmTokenType } from '../enums/destinationType.js';
 import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
-  /** Rail this value belongs to. Set for bitcoin and ERC-681. Unset for tron:, ton:, and sol:. */
+  /** Rail this value belongs to. Set for bitcoin and ERC-681. */
   type?: DestinationType;
   /** Visible address that participates in the secret-key swap check. */
   secretKey?: boolean;
@@ -109,7 +109,7 @@ export class QRParser {
   /**
    * Destination types this scan may decrypt.
    * ERC-681 sets one type from the chain id and token contract.
-   * Tron, TON, and Solana set the scheme family (match-if-any).
+   * Bitcoin sets `bitcoin_address`.
    */
   expectedSecretKeyTypes?: readonly DestinationType[];
   /** A payable instruction this SDK cannot bind to a decrypted destination. */
@@ -136,20 +136,6 @@ export class QRParser {
       } else {
         this.destinations.push({ value: text });
       }
-      return;
-    }
-
-    const secretKeyFamily = SECRET_KEY_URI_FAMILIES[scheme];
-    if (secretKeyFamily !== undefined) {
-      const dest = getDestination(text);
-      if (dest !== undefined) {
-        // Address only — token comes from the matched payment destination after verify.
-        this.destinations.push({ value: dest, secretKey: true });
-        this.expectedSecretKeyTypes = secretKeyFamily;
-      }
-      const queryParams = parseQueryString(uri.search);
-      this.onChainEncryptionText = queryParams.get('branta_id');
-      this.onChainEncryptionSecret = queryParams.get('branta_secret');
       return;
     }
 

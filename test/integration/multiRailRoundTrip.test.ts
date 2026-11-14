@@ -141,34 +141,6 @@ const secretKeyRails: SecretKeyRail[] = [
     caseFold: true,
     eip681: { chainId: 42161, contract: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
   },
-  {
-    kind: 'secret',
-    type: DestinationType.UsdtTron,
-    scheme: 'tron',
-    address: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb',
-    swapped: 'TXyZ1111111111111111111111111111111',
-  },
-  {
-    kind: 'secret',
-    type: DestinationType.UsdtTon,
-    scheme: 'ton',
-    address: 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by',
-    swapped: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
-  },
-  {
-    kind: 'secret',
-    type: DestinationType.UsdtSolana,
-    scheme: 'sol',
-    address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-    swapped: '11111111111111111111111111111111',
-  },
-  {
-    kind: 'secret',
-    type: DestinationType.UsdcSolana,
-    scheme: 'sol',
-    address: '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf',
-    swapped: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-  },
 ];
 
 const derivedKeyRails: DerivedKeyRail[] = [
@@ -256,6 +228,28 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
 
       const noBranta = await service.verify(uriWithoutBranta(rail));
       expect(noBranta.status).toBe(VerifyStatus.Unknown);
+    },
+    45000,
+  );
+
+  test.each([
+    { type: DestinationType.UsdtTron, address: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', scheme: 'tron' },
+    { type: DestinationType.UsdtTon, address: 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by', scheme: 'ton' },
+    { type: DestinationType.UsdtSolana, address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', scheme: 'sol' },
+    { type: DestinationType.UsdcSolana, address: '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf', scheme: 'sol' },
+  ])(
+    'post-only $type: addPayment encrypts and $scheme does not verify',
+    async (rail) => {
+      const payment = service.createPaymentBuilder().addDestination(rail.address, rail.type).setTtl(180).build();
+      const { secret, payment: created } = await service.addPayment(payment);
+      const encrypted = created.destinations[0]!.value;
+
+      expect(created.destinations[0]!.type).toBe(rail.type);
+      expect(encrypted).not.toBe(rail.address);
+
+      const uri = `${rail.scheme}:${rail.address}?branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+      const result = await service.verify(uri);
+      expect(result.status).toBe(VerifyStatus.Unknown);
     },
     45000,
   );

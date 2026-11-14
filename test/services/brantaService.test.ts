@@ -91,25 +91,14 @@ const brantaUsdtArbitrumLookup = (address = UsdtArbitrumAddress, secret = Secret
 
 const UsdtTronAddress = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const EncryptedUsdtTronAddress = 'encrypted-usdt-tron-address';
-const SwappedTronAddress = 'TXyZ1111111111111111111111111111111';
-const brantaUsdtTronLookup = (address = UsdtTronAddress, secret = Secret) =>
-  `tron:${address}?branta_id=${encodeURIComponent(EncryptedUsdtTronAddress)}&branta_secret=${encodeURIComponent(secret)}`;
 
 const UsdtTonAddress = 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by';
 const EncryptedUsdtTonAddress = 'encrypted-usdt-ton-address';
-const SwappedTonAddress = 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c';
-const brantaUsdtTonLookup = (address = UsdtTonAddress, secret = Secret) =>
-  `ton:${address}?branta_id=${encodeURIComponent(EncryptedUsdtTonAddress)}&branta_secret=${encodeURIComponent(secret)}`;
 
 const UsdtSolanaAddress = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
 const EncryptedUsdtSolanaAddress = 'encrypted-usdt-solana-address';
 const UsdcSolanaAddress = '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf';
 const EncryptedUsdcSolanaAddress = 'encrypted-usdc-solana-address';
-const SwappedSolanaAddress = '11111111111111111111111111111111';
-const brantaUsdtSolanaLookup = (address = UsdtSolanaAddress, secret = Secret) =>
-  `sol:${address}?branta_id=${encodeURIComponent(EncryptedUsdtSolanaAddress)}&branta_secret=${encodeURIComponent(secret)}`;
-const brantaUsdcSolanaLookup = (address = UsdcSolanaAddress, secret = Secret) =>
-  `sol:${address}?branta_id=${encodeURIComponent(EncryptedUsdcSolanaAddress)}&branta_secret=${encodeURIComponent(secret)}`;
 
 const Bolt11Invoice = 'lnbc100n1ptest';
 const EncryptedBolt11 = 'encrypted-bolt11-value';
@@ -182,10 +171,6 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
     if (encryptedValue === EncryptedUsdtBaseAddress && secret === Secret) return UsdtBaseAddress;
     if (encryptedValue === EncryptedUsdcArbitrumAddress && secret === Secret) return UsdcArbitrumAddress;
     if (encryptedValue === EncryptedUsdtArbitrumAddress && secret === Secret) return UsdtArbitrumAddress;
-    if (encryptedValue === EncryptedUsdtTronAddress && secret === Secret) return UsdtTronAddress;
-    if (encryptedValue === EncryptedUsdtTonAddress && secret === Secret) return UsdtTonAddress;
-    if (encryptedValue === EncryptedUsdtSolanaAddress && secret === Secret) return UsdtSolanaAddress;
-    if (encryptedValue === EncryptedUsdcSolanaAddress && secret === Secret) return UsdcSolanaAddress;
     if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) return Bolt11Invoice;
     if (encryptedValue === EncryptedArkAddress && secret === ArkHash) return ArkAddress;
     return '';
@@ -270,24 +255,6 @@ const encryptedUsdcArbitrumPayment = (): Payment =>
 
 const encryptedUsdtArbitrumPayment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedUsdtArbitrumAddress, DestinationType.UsdtArbitrum).build();
-
-const encryptedUsdtTronPayment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedUsdtTronAddress, DestinationType.UsdtTron).build();
-
-const encryptedUsdtTonPayment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedUsdtTonAddress, DestinationType.UsdtTon).build();
-
-const encryptedUsdtSolanaPayment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedUsdtSolanaAddress, DestinationType.UsdtSolana).build();
-
-const encryptedUsdcSolanaPayment = (): Payment =>
-  new PaymentBuilder().addDestination(EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana).build();
-
-const encryptedUsdtAndUsdcSolanaPayment = (): Payment =>
-  new PaymentBuilder()
-    .addDestination(EncryptedUsdtSolanaAddress, DestinationType.UsdtSolana)
-    .addDestination(EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana)
-    .build();
 
 const encryptedBolt11Payment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).build();
@@ -419,7 +386,11 @@ describe('BrantaService', () => {
     test.each([
       `eth:${UsdtEthereumAddress}?branta_id=abc&branta_secret=1234`,
       `bsc:${UsdtBscAddress}?branta_id=abc&branta_secret=1234`,
-    ])('verify_legacyChainUri_returnsUnknownWithoutGet', async (uri) => {
+      `tron:${UsdtTronAddress}?branta_id=${encodeURIComponent(EncryptedUsdtTronAddress)}&branta_secret=${Secret}`,
+      `ton:${UsdtTonAddress}?branta_id=${encodeURIComponent(EncryptedUsdtTonAddress)}&branta_secret=${Secret}`,
+      `sol:${UsdtSolanaAddress}?branta_id=${encodeURIComponent(EncryptedUsdtSolanaAddress)}&branta_secret=${Secret}`,
+      `sol:${UsdcSolanaAddress}?branta_id=${encodeURIComponent(EncryptedUsdcSolanaAddress)}&branta_secret=${Secret}`,
+    ])('verify_unrecognizedChainUri_returnsUnknownWithoutGet', async (uri) => {
       expectUnknown(await service.verify(uri));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
@@ -650,125 +621,13 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
-    test('verify_tronUsdtUri_returnsMatch', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtTronAddress) return [encryptedUsdtTronPayment()];
-        return [];
-      });
-
-      const { matchedDestinations } = expectMatch(await service.verify(brantaUsdtTronLookup()));
-      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtTron);
-      expect(matchedDestinations[0]!.value).toBe(UsdtTronAddress);
-    });
-
-    test('verify_tronUsdtUri_swappedAddress_isTampered', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtTronAddress) return [encryptedUsdtTronPayment()];
-        return [];
-      });
-
-      expectTampered(await service.verify(brantaUsdtTronLookup(SwappedTronAddress)));
-    });
-
-    test('verify_bareTronAddress_returnsUnknown', async () => {
-      expectUnknown(await service.verify(UsdtTronAddress));
-      expect(clientMock.getPayments).not.toHaveBeenCalled();
-    });
-
-    test('verify_tronUriWithoutBrantaParams_returnsUnknown', async () => {
-      expectUnknown(await service.verify(`tron:${UsdtTronAddress}`));
-      expect(clientMock.getPayments).not.toHaveBeenCalled();
-    });
-
-    test('verify_tonUsdtUri_returnsMatch', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtTonAddress) return [encryptedUsdtTonPayment()];
-        return [];
-      });
-
-      const { matchedDestinations } = expectMatch(await service.verify(brantaUsdtTonLookup()));
-      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtTon);
-      expect(matchedDestinations[0]!.value).toBe(UsdtTonAddress);
-    });
-
-    test('verify_tonUsdtUri_swappedAddress_isTampered', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtTonAddress) return [encryptedUsdtTonPayment()];
-        return [];
-      });
-
-      expectTampered(await service.verify(brantaUsdtTonLookup(SwappedTonAddress)));
-    });
-
-    test('verify_bareTonAddress_returnsUnknown', async () => {
-      expectUnknown(await service.verify(UsdtTonAddress));
-      expect(clientMock.getPayments).not.toHaveBeenCalled();
-    });
-
-    test('verify_solUsdtUri_returnsMatch', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtSolanaAddress) return [encryptedUsdtSolanaPayment()];
-        return [];
-      });
-
-      const { matchedDestinations } = expectMatch(await service.verify(brantaUsdtSolanaLookup()));
-      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtSolana);
-      expect(matchedDestinations[0]!.value).toBe(UsdtSolanaAddress);
-    });
-
-    test('verify_solUsdcUri_returnsMatch', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdcSolanaAddress) return [encryptedUsdcSolanaPayment()];
-        return [];
-      });
-
-      const { matchedDestinations } = expectMatch(await service.verify(brantaUsdcSolanaLookup()));
-      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdcSolana);
-      expect(matchedDestinations[0]!.value).toBe(UsdcSolanaAddress);
-    });
-
-    test('verify_solUsdtUri_swappedAddress_isTampered', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtSolanaAddress) return [encryptedUsdtSolanaPayment()];
-        return [];
-      });
-
-      expectTampered(await service.verify(brantaUsdtSolanaLookup(SwappedSolanaAddress)));
-    });
-
-    test('verify_solUsdcUri_swappedAddress_isTampered', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdcSolanaAddress) return [encryptedUsdcSolanaPayment()];
-        return [];
-      });
-
-      expectTampered(await service.verify(brantaUsdcSolanaLookup(SwappedSolanaAddress)));
-    });
-
-    test('verify_solUri_matchIfAny_bindsUsdtAndLeavesSiblingUsdcEncrypted', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtSolanaAddress) return [encryptedUsdtAndUsdcSolanaPayment()];
-        return [];
-      });
-
-      const { payments, matchedDestinations } = expectMatch(await service.verify(brantaUsdtSolanaLookup()));
-
-      expect(payments[0]!.destinations[0]!.isEncrypted).toBe(false);
-      expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
-      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtSolana);
-    });
-
-    test('verify_solUri_swappedAddress_tamperedWhenNoSolanaFamilyRailMatches', async () => {
-      clientMock.getPayments.mockImplementation(async (lookup: string) => {
-        if (lookup === EncryptedUsdtSolanaAddress) return [encryptedUsdtAndUsdcSolanaPayment()];
-        return [];
-      });
-
-      expectTampered(await service.verify(brantaUsdtSolanaLookup(SwappedSolanaAddress)));
-    });
-
-    test('verify_bareSolanaAddress_returnsUnknown', async () => {
-      expectUnknown(await service.verify(UsdcSolanaAddress));
+    test.each([
+      UsdtTronAddress,
+      UsdtTonAddress,
+      UsdtSolanaAddress,
+      UsdcSolanaAddress,
+    ])('verify_bareNonEvmStableAddress_returnsUnknown', async (address) => {
+      expectUnknown(await service.verify(address));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
@@ -1582,6 +1441,7 @@ describe('BrantaService', () => {
       [UsdtArbitrumAddress, DestinationType.UsdtArbitrum, EncryptedUsdtArbitrumAddress],
       [UsdtTronAddress, DestinationType.UsdtTron, EncryptedUsdtTronAddress],
       [UsdtTonAddress, DestinationType.UsdtTon, EncryptedUsdtTonAddress],
+      [UsdtSolanaAddress, DestinationType.UsdtSolana, EncryptedUsdtSolanaAddress],
       [UsdcSolanaAddress, DestinationType.UsdcSolana, EncryptedUsdcSolanaAddress],
     ] as const)('addPayment_encryptsSecretKeyRail_%s', async (address, type, encrypted) => {
       const payment = new PaymentBuilder().addDestination(address, type).build();

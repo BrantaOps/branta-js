@@ -80,7 +80,7 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   return first;
 };
 
-/** Types this scan may decrypt. One ERC-681 rail, or a tron/ton/sol family. */
+/** Types this scan may decrypt. One ERC-681 rail, or bitcoin. */
 const expectedSecretKeyTypes = (parser: QRParser): ReadonlySet<DestinationType> | undefined => {
   if (parser.expectedSecretKeyTypes === undefined || parser.expectedSecretKeyTypes.length === 0) {
     return undefined;
