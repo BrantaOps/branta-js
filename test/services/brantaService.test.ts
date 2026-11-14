@@ -47,10 +47,12 @@ const EncryptedUsdtPolygonAddress = 'encrypted-usdt-polygon-address';
 const EncryptedSiblingUsdtPolygonAddress = 'encrypted-sibling-usdt-polygon-address';
 const UsdcPolygonAddress = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B';
 const EncryptedUsdcPolygonAddress = 'encrypted-usdc-polygon-address';
+const eip681 = (contract: string, chainId: number, address: string, brantaId: string, secret: string) =>
+  `ethereum:${contract}@${chainId}/transfer?address=${address}&uint256=1000000&branta_id=${encodeURIComponent(brantaId)}&branta_secret=${encodeURIComponent(secret)}`;
 const brantaUsdtPolygonLookup = (address = UsdtPolygonAddress, secret = Secret) =>
-  `pol:${address}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(EncryptedUsdtPolygonAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+  eip681('0xc2132d05d31c914a87c6611c10748aeb04b58e8f', 137, address, EncryptedUsdtPolygonAddress, secret);
 const brantaUsdcPolygonLookup = (address = UsdcPolygonAddress, secret = Secret) =>
-  `pol:${address}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(EncryptedUsdcPolygonAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+  eip681('0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359', 137, address, EncryptedUsdcPolygonAddress, secret);
 
 const SwappedEvmAddress = SwappedPolygonEvmAddress;
 
@@ -59,16 +61,16 @@ const EncryptedUsdtEthereumAddress = 'encrypted-usdt-ethereum-address';
 const UsdcEthereumAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const EncryptedUsdcEthereumAddress = 'encrypted-usdc-ethereum-address';
 const brantaUsdtEthereumLookup = (address = UsdtEthereumAddress, secret = Secret) =>
-  `eth:${address}?value=50&branta_id=${encodeURIComponent(EncryptedUsdtEthereumAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+  eip681('0xdAC17F958D2ee523a2206206994597C13D831ec7', 1, address, EncryptedUsdtEthereumAddress, secret);
 const brantaUsdcEthereumLookup = (address = UsdcEthereumAddress, secret = Secret) =>
-  `eth:${address}?branta_id=${encodeURIComponent(EncryptedUsdcEthereumAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+  eip681('0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', 1, address, EncryptedUsdcEthereumAddress, secret);
 
 const UsdtBscAddress = '0x55d398326f99059fF775485246999027B3197955';
 const EncryptedUsdtBscAddress = 'encrypted-usdt-bsc-address';
 const UsdcBscAddress = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 const EncryptedUsdcBscAddress = 'encrypted-usdc-bsc-address';
 const brantaUsdtBscLookup = (address = UsdtBscAddress, secret = Secret) =>
-  `bsc:${address}?branta_id=${encodeURIComponent(EncryptedUsdtBscAddress)}&branta_secret=${encodeURIComponent(secret)}`;
+  eip681('0x55d398326f99059ff775485246999027b3197955', 56, address, EncryptedUsdtBscAddress, secret);
 
 const UsdtTronAddress = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const EncryptedUsdtTronAddress = 'encrypted-usdt-tron-address';
@@ -360,7 +362,18 @@ describe('BrantaService', () => {
     });
 
     test('verify_polUriWithoutBrantaParams_returnsUnknown', async () => {
-      const result = await service.verify(`pol:${UsdtPolygonAddress}?value=50&currency=USD`);
+      const result = await service.verify(
+        `ethereum:0xc2132d05d31c914a87c6611c10748aeb04b58e8f@137/transfer?address=${UsdtPolygonAddress}&uint256=1000000`,
+      );
+
+      expectUnknown(result);
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('verify_legacyPolUri_returnsUnknownWithoutGet', async () => {
+      const result = await service.verify(
+        `pol:${UsdtPolygonAddress}?value=50&currency=USD&branta_id=abc&branta_secret=1234`,
+      );
 
       expectUnknown(result);
       expect(clientMock.getPayments).not.toHaveBeenCalled();
@@ -467,7 +480,11 @@ describe('BrantaService', () => {
     });
 
     test('verify_ethUriWithoutBrantaParams_returnsUnknown', async () => {
-      expectUnknown(await service.verify(`eth:${UsdtEthereumAddress}?value=50`));
+      expectUnknown(
+        await service.verify(
+          `ethereum:0xdAC17F958D2ee523a2206206994597C13D831ec7@1/transfer?address=${UsdtEthereumAddress}&uint256=1000000`,
+        ),
+      );
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 

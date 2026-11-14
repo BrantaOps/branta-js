@@ -25,7 +25,7 @@ switch (result.status) {
   case "match":
     // Show the card for result.payments[0]. Link it to result.verifyUrl.
     // What to send is result.matchedDestinations — each has type + plaintext value.
-    // e.g. usdt_polygon / usdc_polygon / bitcoin_address / bolt11. Do not infer token from pol:.
+    // e.g. usdc_base / usdt_polygon / bitcoin_address / bolt11. Token is the matched destination type.
     break;
   case "unknown":
     // Not in Branta — show nothing.
@@ -39,7 +39,7 @@ switch (result.status) {
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Polygon EVM rails (`usdt_polygon`, `usdc_polygon`) need a `pol:` URI with the same params — token is on `matchedDestinations[].type`, not the `pol:` scheme. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
+On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. EVM USDT and USDC on Ethereum, Polygon, BNB Smart Chain, Base, and Arbitrum use ERC-681: `ethereum:<token-contract>@<chain-id>/transfer?address=<deposit>&uint256=<amount>` with the same Branta params. The chain id and token contract select the destination type. `uint256` is not part of the match. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
 
 Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
 

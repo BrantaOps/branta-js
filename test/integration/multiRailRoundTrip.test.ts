@@ -32,6 +32,8 @@ type SecretKeyRail = {
   swapped: string;
   /** EVM addresses fold case for match. */
   caseFold?: boolean;
+  /** Set for EIP-681 EVM rails. `scheme` is unused for the verify string. */
+  eip681?: { chainId: number; contract: string };
 };
 
 type DerivedKeyRail = {
@@ -56,6 +58,7 @@ const secretKeyRails: SecretKeyRail[] = [
     address: '0x278297528c32eCa01295B0d2135984d3442ec963',
     swapped: '0x1111111111111111111111111111111111111111',
     caseFold: true,
+    eip681: { chainId: 137, contract: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' },
   },
   {
     kind: 'secret',
@@ -64,6 +67,7 @@ const secretKeyRails: SecretKeyRail[] = [
     address: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
     swapped: '0x2222222222222222222222222222222222222222',
     caseFold: true,
+    eip681: { chainId: 137, contract: '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359' },
   },
   {
     kind: 'secret',
@@ -72,6 +76,7 @@ const secretKeyRails: SecretKeyRail[] = [
     address: '0xBF5550253939187432Ef4dccE8089765d3DCb47f',
     swapped: '0x3333333333333333333333333333333333333333',
     caseFold: true,
+    eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' },
   },
   {
     kind: 'secret',
@@ -80,6 +85,7 @@ const secretKeyRails: SecretKeyRail[] = [
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     swapped: '0x4444444444444444444444444444444444444444',
     caseFold: true,
+    eip681: { chainId: 1, contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
   },
   {
     kind: 'secret',
@@ -88,6 +94,7 @@ const secretKeyRails: SecretKeyRail[] = [
     address: '0x55d398326f99059fF775485246999027B3197955',
     swapped: '0x5555555555555555555555555555555555555555',
     caseFold: true,
+    eip681: { chainId: 56, contract: '0x55d398326f99059ff775485246999027b3197955' },
   },
   {
     kind: 'secret',
@@ -96,6 +103,43 @@ const secretKeyRails: SecretKeyRail[] = [
     address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
     swapped: '0x6666666666666666666666666666666666666666',
     caseFold: true,
+    eip681: { chainId: 56, contract: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' },
+  },
+  {
+    kind: 'secret',
+    type: DestinationType.UsdcBase,
+    scheme: 'base',
+    address: '0x1111111111111111111111111111111111111112',
+    swapped: '0x1111111111111111111111111111111111111113',
+    caseFold: true,
+    eip681: { chainId: 8453, contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  },
+  {
+    kind: 'secret',
+    type: DestinationType.UsdtBase,
+    scheme: 'base',
+    address: '0x1111111111111111111111111111111111111114',
+    swapped: '0x1111111111111111111111111111111111111115',
+    caseFold: true,
+    eip681: { chainId: 8453, contract: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2' },
+  },
+  {
+    kind: 'secret',
+    type: DestinationType.UsdcArbitrum,
+    scheme: 'arbitrum',
+    address: '0x1111111111111111111111111111111111111116',
+    swapped: '0x1111111111111111111111111111111111111117',
+    caseFold: true,
+    eip681: { chainId: 42161, contract: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' },
+  },
+  {
+    kind: 'secret',
+    type: DestinationType.UsdtArbitrum,
+    scheme: 'arbitrum',
+    address: '0x1111111111111111111111111111111111111118',
+    swapped: '0x1111111111111111111111111111111111111119',
+    caseFold: true,
+    eip681: { chainId: 42161, contract: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
   },
   {
     kind: 'secret',
@@ -145,8 +189,24 @@ const derivedKeyRails: DerivedKeyRail[] = [
   },
 ];
 
-const secretKeyUri = (scheme: string, recipient: string, encrypted: string, secret: string) =>
-  `${scheme}:${recipient}?branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+const secretKeyUri = (
+  rail: Pick<SecretKeyRail, 'scheme' | 'eip681'>,
+  recipient: string,
+  encrypted: string,
+  secret: string,
+) => {
+  if (rail.eip681 !== undefined) {
+    return `ethereum:${rail.eip681.contract}@${rail.eip681.chainId}/transfer?address=${recipient}&uint256=1000000&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+  }
+  return `${rail.scheme}:${recipient}?branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+};
+
+const uriWithoutBranta = (rail: SecretKeyRail) => {
+  if (rail.eip681 !== undefined) {
+    return `ethereum:${rail.eip681.contract}@${rail.eip681.chainId}/transfer?address=${rail.address}&uint256=1000000`;
+  }
+  return `${rail.scheme}:${rail.address}`;
+};
 
 describeLiveWrite('Staging multi-rail SDK round-trips', () => {
   const service = new BrantaService({
@@ -170,7 +230,7 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
       expect(created.destinations[0]!.type).toBe(rail.type);
       expect(encrypted).not.toBe(rail.address);
 
-      const match = await service.verify(secretKeyUri(rail.scheme, rail.address, encrypted, secret));
+      const match = await service.verify(secretKeyUri(rail, rail.address, encrypted, secret));
       expect(match.status).toBe(VerifyStatus.Match);
       if (match.status !== VerifyStatus.Match) throw new Error(`expected match for ${rail.type}`);
       expect(match.matchedDestinations).toHaveLength(1);
@@ -183,18 +243,18 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
 
       if (rail.caseFold) {
         const folded = await service.verify(
-          secretKeyUri(rail.scheme, rail.address.toLowerCase(), encrypted, secret),
+          secretKeyUri(rail, rail.address.toLowerCase(), encrypted, secret),
         );
         expect(folded.status).toBe(VerifyStatus.Match);
       }
 
-      const tampered = await service.verify(secretKeyUri(rail.scheme, rail.swapped, encrypted, secret));
+      const tampered = await service.verify(secretKeyUri(rail, rail.swapped, encrypted, secret));
       expect(tampered.status).toBe(VerifyStatus.Tampered);
 
       const bare = await service.verify(rail.address);
       expect(bare.status).toBe(VerifyStatus.Unknown);
 
-      const noBranta = await service.verify(`${rail.scheme}:${rail.address}`);
+      const noBranta = await service.verify(uriWithoutBranta(rail));
       expect(noBranta.status).toBe(VerifyStatus.Unknown);
     },
     45000,
@@ -235,10 +295,24 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
     const { secret, payment: created } = await service.addPayment(payment);
     const encrypted = created.destinations[0]!.value;
 
-    const cross = await service.verify(secretKeyUri('eth', address, encrypted, secret));
+    const cross = await service.verify(
+      secretKeyUri(
+        { scheme: 'eth', eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' } },
+        address,
+        encrypted,
+        secret,
+      ),
+    );
     expect(cross.status).toBe(VerifyStatus.Unknown);
 
-    const correct = await service.verify(secretKeyUri('pol', address, encrypted, secret));
+    const correct = await service.verify(
+      secretKeyUri(
+        { scheme: 'pol', eip681: { chainId: 137, contract: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' } },
+        address,
+        encrypted,
+        secret,
+      ),
+    );
     expect(correct.status).toBe(VerifyStatus.Match);
   }, 45000);
 
@@ -256,20 +330,22 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
     // Same branta_id can be either ciphertext; use the USDT leg as lookup (first destination).
     const encryptedUsdt = created.destinations[0]!.value;
 
-    const matchUsdt = await service.verify(secretKeyUri('eth', usdt, encryptedUsdt, secret));
+    const ethUsdt = { scheme: 'eth', eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' } };
+    const ethUsdc = { scheme: 'eth', eip681: { chainId: 1, contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' } };
+    const matchUsdt = await service.verify(secretKeyUri(ethUsdt, usdt, encryptedUsdt, secret));
     expect(matchUsdt.status).toBe(VerifyStatus.Match);
     if (matchUsdt.status !== VerifyStatus.Match) throw new Error('expected usdt match');
     expect(matchUsdt.matchedDestinations.map((d) => d.type)).toEqual([DestinationType.UsdtEthereum]);
     const usdcDest = matchUsdt.payments[0]!.destinations.find((d) => d.type === DestinationType.UsdcEthereum);
     expect(usdcDest?.isEncrypted).not.toBe(false);
 
-    const matchUsdc = await service.verify(secretKeyUri('eth', usdc, encryptedUsdt, secret));
+    const matchUsdc = await service.verify(secretKeyUri(ethUsdc, usdc, encryptedUsdt, secret));
     expect(matchUsdc.status).toBe(VerifyStatus.Match);
     if (matchUsdc.status !== VerifyStatus.Match) throw new Error('expected usdc match');
     expect(matchUsdc.matchedDestinations.map((d) => d.type)).toEqual([DestinationType.UsdcEthereum]);
 
     const swapped = await service.verify(
-      secretKeyUri('eth', '0x9999999999999999999999999999999999999999', encryptedUsdt, secret),
+      secretKeyUri(ethUsdt, '0x9999999999999999999999999999999999999999', encryptedUsdt, secret),
     );
     expect(swapped.status).toBe(VerifyStatus.Tampered);
   }, 45000);

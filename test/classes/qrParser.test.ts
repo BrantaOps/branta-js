@@ -2,9 +2,6 @@ import { describe, expect, test } from '@jest/globals';
 
 import {
   DestinationType,
-  POLYGON_EVM_DESTINATION_TYPES,
-  ETHEREUM_EVM_DESTINATION_TYPES,
-  BSC_EVM_DESTINATION_TYPES,
   TRON_DESTINATION_TYPES,
   TON_DESTINATION_TYPES,
   SOLANA_DESTINATION_TYPES,
@@ -109,36 +106,54 @@ describe('QRParser', () => {
     expect(result.destinationType).toBeUndefined();
   });
 
-  test('qrParser_polUri_setsAddressWithoutTokenType_andPolygonEvmFamily', () => {
-    const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
-    const result = new QRParser(`pol:${address}`);
-
-    expect(result.destination).toBe(address);
-    expect(result.destinationType).toBeUndefined();
-    expect(result.destinations[0]!.secretKey).toBe(true);
-    expect(result.expectedSecretKeyTypes).toEqual(POLYGON_EVM_DESTINATION_TYPES);
-    expect(result.onChainEncryptionText).toBeUndefined();
-    expect(result.onChainEncryptionSecret).toBeUndefined();
-  });
-
-  test('qrParser_polUriWithAmountAndBrantaParams_ignoresExtrasAndSetsBrantaParams', () => {
-    const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
+  test('qrParser_eip681_bindsDepositAddressAndOneToken', () => {
+    const address = '0x1111111111111111111111111111111111111111';
     const result = new QRParser(
-      `pol:${address}?value=50&user=send&currency=USD&branta_id=abc%2Bdef%3D&branta_secret=1234`,
+      `ethereum:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913@8453/transfer?address=${address}&uint256=1000000&branta_id=abc%2Bdef%3D&branta_secret=1234`,
     );
 
     expect(result.destination).toBe(address);
-    expect(result.destinationType).toBeUndefined();
+    expect(result.destinationType).toBe(DestinationType.UsdcBase);
     expect(result.destinations).toHaveLength(1);
     expect(result.destinations[0]!.secretKey).toBe(true);
-    expect(result.expectedSecretKeyTypes).toEqual(POLYGON_EVM_DESTINATION_TYPES);
+    expect(result.expectedSecretKeyTypes).toEqual([DestinationType.UsdcBase]);
     expect(result.onChainEncryptionText).toBe('abc+def=');
     expect(result.onChainEncryptionSecret).toBe('1234');
   });
 
+  test('qrParser_eip681_matchesContractCaseInsensitively', () => {
+    const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
+    const result = new QRParser(
+      `ethereum:0xC2132D05D31C914A87C6611C10748AEB04B58E8F@137/transfer?address=${address}&uint256=21`,
+    );
+
+    expect(result.destination).toBe(address);
+    expect(result.destinationType).toBe(DestinationType.UsdtPolygon);
+    expect(result.expectedSecretKeyTypes).toEqual([DestinationType.UsdtPolygon]);
+    expect(result.onChainEncryptionText).toBeUndefined();
+  });
+
+  test('qrParser_eip681_unknownContractOrOldScheme_doesNotBind', () => {
+    const unknown = new QRParser(
+      'ethereum:0x0000000000000000000000000000000000000001@1/transfer?address=0x1111111111111111111111111111111111111111&branta_id=abc&branta_secret=1234',
+    );
+    expect(unknown.destinationType).toBeUndefined();
+    expect(unknown.expectedSecretKeyTypes).toBeUndefined();
+    expect(unknown.onChainEncryptionText).toBeUndefined();
+
+    const wrongChain = new QRParser(
+      'ethereum:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913@1/transfer?address=0x1111111111111111111111111111111111111111&branta_id=abc&branta_secret=1234',
+    );
+    expect(wrongChain.expectedSecretKeyTypes).toBeUndefined();
+
+    const legacy = new QRParser(
+      'pol:0x278297528c32eCa01295B0d2135984d3442ec963?branta_id=abc&branta_secret=1234',
+    );
+    expect(legacy.expectedSecretKeyTypes).toBeUndefined();
+    expect(legacy.onChainEncryptionText).toBeUndefined();
+  });
+
   test.each([
-    ['eth', '0xBF5550253939187432Ef4dccE8089765d3DCb47f', ETHEREUM_EVM_DESTINATION_TYPES],
-    ['bsc', '0x55d398326f99059fF775485246999027B3197955', BSC_EVM_DESTINATION_TYPES],
     ['tron', 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', TRON_DESTINATION_TYPES],
     ['ton', 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by', TON_DESTINATION_TYPES],
     ['sol', '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf', SOLANA_DESTINATION_TYPES],

@@ -18,6 +18,10 @@ describe('publicApi', () => {
     expect(DestinationType.UsdtEthereum).toBe('usdt_ethereum');
     expect(DestinationType.UsdcSolana).toBe('usdc_solana');
     expect(DestinationType.UsdtTon).toBe('usdt_ton');
+    expect(DestinationType.UsdtBase).toBe('usdt_base');
+    expect(DestinationType.UsdcBase).toBe('usdc_base');
+    expect(DestinationType.UsdtArbitrum).toBe('usdt_arbitrum');
+    expect(DestinationType.UsdcArbitrum).toBe('usdc_arbitrum');
     expect(Object.values(DestinationType)).not.toContain('usdc_ton');
   });
 
@@ -30,6 +34,8 @@ describe('publicApi', () => {
       'TRON_DESTINATION_TYPES',
       'TON_DESTINATION_TYPES',
       'SOLANA_DESTINATION_TYPES',
+      'EVM_TOKEN_RAILS',
+      'evmTokenType',
       'SECRET_KEY_URI_FAMILIES',
       'isPolygonEvmDestinationType',
       'isSecretKeyAddressType',

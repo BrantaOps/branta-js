@@ -277,7 +277,7 @@ export class BrantaService implements IBrantaService {
       destination.isEncrypted = true;
 
       if (destination.type === undefined || !isSecretKeyAddressType(destination.type)) continue;
-      // Outside this QR's rail family (e.g. bitcoin when scanning pol:) — leave encrypted.
+      // Outside this scan's destination type — leave encrypted.
       if (expectedOnChainTypes !== undefined && !expectedOnChainTypes.has(destination.type)) continue;
       if (encryptionKey === undefined) continue;
       let decrypted: string;

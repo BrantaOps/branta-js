@@ -35,7 +35,7 @@ describeLiveWrite('Staging usdc_polygon round-trip', () => {
   const swapped = '0x1111111111111111111111111111111111111111';
 
   const polUri = (recipient: string, encrypted: string, secret: string) =>
-    `pol:${recipient}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+    `ethereum:0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359@137/transfer?address=${recipient}&uint256=1000000&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
 
   test('addPayment then verify match, case-insensitive, tampered, and bare unknown', async () => {
     const payment = service
@@ -64,7 +64,9 @@ describeLiveWrite('Staging usdc_polygon round-trip', () => {
     const bare = await service.verify(address);
     expect(bare.status).toBe(VerifyStatus.Unknown);
 
-    const polWithoutBranta = await service.verify(`pol:${address}?value=50&currency=USD`);
+    const polWithoutBranta = await service.verify(
+      `ethereum:0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359@137/transfer?address=${address}&uint256=1000000`,
+    );
     expect(polWithoutBranta.status).toBe(VerifyStatus.Unknown);
   }, 30000);
 });
