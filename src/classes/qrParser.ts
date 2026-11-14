@@ -3,7 +3,7 @@ import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensio
 
 export interface QrDestination {
   value: string;
-  /** Known rail type when the scheme or payload names one (e.g. bitcoin). Not set for chain URI schemes. */
+  /** Rail this value belongs to. Set for bitcoin and ERC-681. Unset for tron:, ton:, and sol:. */
   type?: DestinationType;
   /** Visible address that participates in the secret-key swap check. */
   secretKey?: boolean;
@@ -107,8 +107,9 @@ export class QRParser {
   onChainEncryptionText?: string;
   onChainEncryptionSecret?: string;
   /**
-   * Destination types `verify` may bind for this QR's scheme (match-if-any).
-   * Set from the URI scheme — not from a token stamped on the address.
+   * Destination types this scan may decrypt.
+   * ERC-681 sets one type from the chain id and token contract.
+   * Tron, TON, and Solana set the scheme family (match-if-any).
    */
   expectedSecretKeyTypes?: readonly DestinationType[];
   /** A payable instruction this SDK cannot bind to a decrypted destination. */

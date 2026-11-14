@@ -1,27 +1,15 @@
 import {
   DestinationType,
-  POLYGON_EVM_DESTINATION_TYPES,
   TRON_DESTINATION_TYPES,
   TON_DESTINATION_TYPES,
   SOLANA_DESTINATION_TYPES,
   EVM_TOKEN_RAILS,
   SECRET_KEY_URI_FAMILIES,
   evmTokenType,
-  isPolygonEvmDestinationType,
   isSecretKeyAddressType,
 } from '../../src/enums/destinationType.js';
 
 describe('destinationType', () => {
-  test('polygonEvmFamily_includesUsdtAndUsdc', () => {
-    expect(POLYGON_EVM_DESTINATION_TYPES).toEqual([
-      DestinationType.UsdtPolygon,
-      DestinationType.UsdcPolygon,
-    ]);
-    expect(isPolygonEvmDestinationType(DestinationType.UsdtPolygon)).toBe(true);
-    expect(isPolygonEvmDestinationType(DestinationType.UsdcPolygon)).toBe(true);
-    expect(isPolygonEvmDestinationType(DestinationType.BitcoinAddress)).toBe(false);
-  });
-
   test('secretKeyUriFamilies_mapSchemesToRails', () => {
     expect(SECRET_KEY_URI_FAMILIES).toEqual({
       tron: TRON_DESTINATION_TYPES,

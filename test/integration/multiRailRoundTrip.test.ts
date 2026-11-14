@@ -316,7 +316,7 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
     expect(correct.status).toBe(VerifyStatus.Match);
   }, 45000);
 
-  test('match-if-any: eth dual-token payment binds scanned rail only', async () => {
+  test('eip681: eth dual-token payment binds the scanned token only', async () => {
     const usdt = '0xBF5550253939187432Ef4dccE8089765d3DCb47f';
     const usdc = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
     const payment = service

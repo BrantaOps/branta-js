@@ -191,7 +191,7 @@ const encryptedBitcoinAndUsdtPolygonPayment = (): Payment => {
   return payment;
 };
 
-/** Two Polygon rails with different recipients — match-if-any must not false-tamper. */
+/** Two USDT Polygon destinations with different recipients. Only the scanned address decrypts. */
 const encryptedDualUsdtPolygonPayment = (): Payment =>
   new PaymentBuilder()
     .addDestination(EncryptedSiblingUsdtPolygonAddress, DestinationType.UsdtPolygon)
@@ -307,7 +307,7 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[0]!.value).toBe(BitcoinAddress);
     });
 
-    test('verify_polUsdtUri_usesBrantaParamsAndIgnoresAmountQuery', async () => {
+    test('verify_polygonUsdtUri_usesBrantaParamsAndIgnoresAmountQuery', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
         return [];
@@ -327,7 +327,7 @@ describe('BrantaService', () => {
       ]);
     });
 
-    test('verify_polUsdtUri_caseInsensitiveAddressMatch', async () => {
+    test('verify_polygonUsdtUri_caseInsensitiveAddressMatch', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
         return [];
@@ -336,7 +336,7 @@ describe('BrantaService', () => {
       expectMatch(await service.verify(brantaUsdtPolygonLookup(UsdtPolygonAddressLower)));
     });
 
-    test('verify_polUsdtUri_0xPrefixCaseInsensitiveAddressMatch', async () => {
+    test('verify_polygonUsdtUri_0xPrefixCaseInsensitiveAddressMatch', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
         return [];
@@ -345,7 +345,7 @@ describe('BrantaService', () => {
       expectMatch(await service.verify(brantaUsdtPolygonLookup(`0X${UsdtPolygonAddress.slice(2)}`)));
     });
 
-    test('verify_polUsdtUri_swappedAddress_isTampered', async () => {
+    test('verify_polygonUsdtUri_swappedAddress_isTampered', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtPolygonPayment()];
         return [];
@@ -361,7 +361,7 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
-    test('verify_polUriWithoutBrantaParams_returnsUnknown', async () => {
+    test('verify_polygonUsdtUriWithoutBrantaParams_returnsUnknown', async () => {
       const result = await service.verify(
         `ethereum:0xc2132d05d31c914a87c6611c10748aeb04b58e8f@137/transfer?address=${UsdtPolygonAddress}&uint256=1000000`,
       );
@@ -408,7 +408,7 @@ describe('BrantaService', () => {
       expectMatch(await service.verify(brantaUsdtEthereumLookup(UsdtEthereumAddress.toLowerCase())));
     });
 
-    test('verify_ethUri_matchIfAny_bindsUsdtAndLeavesSiblingUsdcEncrypted', async () => {
+    test('verify_ethUsdtUri_leavesSiblingUsdcEncrypted', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtEthereumAddress) return [encryptedUsdtAndUsdcEthereumPayment()];
         return [];
@@ -424,7 +424,7 @@ describe('BrantaService', () => {
       expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtEthereum);
     });
 
-    test('verify_ethUri_swappedAddress_tamperedWhenNoEthereumFamilyRailMatches', async () => {
+    test('verify_ethUsdtUri_swappedAddress_tamperedWhenSiblingUsdcDoesNotMatch', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtEthereumAddress) return [encryptedUsdtAndUsdcEthereumPayment()];
         return [];
@@ -470,7 +470,7 @@ describe('BrantaService', () => {
         return [];
       });
 
-      // Cross-scheme reuse of a ciphertext must not bind — family filter skips Polygon rails.
+      // A chain-1 USDT scan does not decrypt a Polygon destination.
       expectUnknown(await service.verify(brantaUsdtEthereumLookup()));
     });
 
@@ -508,7 +508,7 @@ describe('BrantaService', () => {
       expectTampered(await service.verify(brantaUsdtBscLookup(SwappedEvmAddress)));
     });
 
-    test('verify_bscUri_matchIfAny_bindsUsdtAndLeavesSiblingUsdcEncrypted', async () => {
+    test('verify_bscUsdtUri_leavesSiblingUsdcEncrypted', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtBscAddress) return [encryptedUsdtAndUsdcBscPayment()];
         return [];
@@ -521,7 +521,7 @@ describe('BrantaService', () => {
       expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtBsc);
     });
 
-    test('verify_bscUri_swappedAddress_tamperedWhenNoBscFamilyRailMatches', async () => {
+    test('verify_bscUsdtUri_swappedAddress_tamperedWhenSiblingUsdcDoesNotMatch', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtBscAddress) return [encryptedUsdtAndUsdcBscPayment()];
         return [];
@@ -652,7 +652,7 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
-    test('verify_polUsdtUri_ignoresSiblingBitcoinRailOnSamePayment', async () => {
+    test('verify_polygonUsdtUri_ignoresSiblingBitcoinRailOnSamePayment', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedBitcoinAndUsdtPolygonPayment()];
         return [];
@@ -683,7 +683,7 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
     });
 
-    test('verify_polUsdtUri_swappedAddress_stillTamperedWhenSiblingBitcoinPresent', async () => {
+    test('verify_polygonUsdtUri_swappedAddress_stillTamperedWhenSiblingBitcoinPresent', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedBitcoinAndUsdtPolygonPayment()];
         return [];
@@ -692,7 +692,7 @@ describe('BrantaService', () => {
       expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
-    test('verify_polUri_matchIfAny_withinPolygonFamily_ignoresSiblingDifferentAddress', async () => {
+    test('verify_polygonUsdtUri_otherUsdtDestinationWithDifferentAddressStaysEncrypted', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedDualUsdtPolygonPayment()];
         return [];
@@ -706,7 +706,7 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[1]!.isEncrypted).toBe(false);
     });
 
-    test('verify_polUri_swappedAddress_tamperedWhenNoPolygonFamilyRailMatches', async () => {
+    test('verify_polygonUsdtUri_swappedAddress_tamperedWhenNoUsdtDestinationMatches', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedDualUsdtPolygonPayment()];
         return [];
@@ -715,7 +715,7 @@ describe('BrantaService', () => {
       expectTampered(await service.verify(brantaUsdtPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
-    test('verify_polUsdcUri_usesBrantaParamsAndBindsUsdcRail', async () => {
+    test('verify_polygonUsdcUri_usesBrantaParamsAndBindsUsdcRail', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdcPolygonAddress) return [encryptedUsdcPolygonPayment()];
         return [];
@@ -735,7 +735,7 @@ describe('BrantaService', () => {
       ]);
     });
 
-    test('verify_polUsdcUri_swappedAddress_isTampered', async () => {
+    test('verify_polygonUsdcUri_swappedAddress_isTampered', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdcPolygonAddress) return [encryptedUsdcPolygonPayment()];
         return [];
@@ -744,7 +744,7 @@ describe('BrantaService', () => {
       expectTampered(await service.verify(brantaUsdcPolygonLookup(SwappedPolygonEvmAddress)));
     });
 
-    test('verify_polUri_matchIfAny_bindsUsdtAndLeavesSiblingUsdcEncrypted', async () => {
+    test('verify_polygonUsdtUri_leavesSiblingUsdcEncrypted', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtPolygonAddress) return [encryptedUsdtAndUsdcPolygonPayment()];
         return [];
@@ -758,7 +758,7 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
     });
 
-    test('verify_polUri_matchIfAny_bindsUsdcAndLeavesSiblingUsdtEncrypted', async () => {
+    test('verify_polygonUsdcUri_leavesSiblingUsdtEncrypted', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdcPolygonAddress) return [encryptedUsdtAndUsdcPolygonPayment()];
         return [];
