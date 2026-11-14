@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - EVM USDT and USDC verify reads ERC-681 `ethereum:<token-contract>@<chain-id>/transfer?address=<deposit>&uint256=<amount>`. The chain id and token contract select one destination type. `uint256` is not part of the match.
 - `pol:`, `eth:`, and `bsc:` no longer verify. Tron, TON, and Solana are unchanged.
 
+## [4.3.1] - 2026-11-13
+
+### Fixed
+- HTTP calls (GET, POST, health-check) use a 30s wall-clock timeout. A verify GET that times out returns `incomplete`. Caller `AbortSignal` cancel still surfaces as abort, not `incomplete`.
+
 ## [4.3.0] - 2026-11-12
 
 ### Added

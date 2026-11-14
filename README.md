@@ -41,7 +41,7 @@ switch (result.status) {
 
 On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. EVM USDT and USDC on Ethereum, Polygon, BNB Smart Chain, Base, and Arbitrum use ERC-681: `ethereum:<token-contract>@<chain-id>/transfer?address=<deposit>&uint256=<amount>` with the same Branta params. The chain id and token contract select the destination type. `uint256` is not part of the match. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
 
-Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`. 5xx, 429, or no network is `incomplete`.
+Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`. 5xx, 429, no network, or a 30s HTTP timeout is `incomplete`.
 
 ## Receive
 

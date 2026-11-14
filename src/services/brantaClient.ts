@@ -30,26 +30,37 @@ const hmacSha256Hex = async (keyBytes: Bytes, messageBytes: Bytes, crypto?: Bran
 
 type FetchImpl = typeof fetch;
 
+/** Default wall-clock timeout for every HTTP call (GET, POST, health-check). */
+export const HTTP_TIMEOUT_MS = 30_000;
+
 export class BrantaClient implements IBrantaClient {
   private readonly defaultOptions?: BrantaApiOptions;
   private readonly fetchImpl: FetchImpl;
   private readonly crypto?: BrantaCryptoProvider;
+  private readonly timeoutMs: number;
 
-  constructor(defaultOptions?: BrantaApiOptions, fetchImpl?: FetchImpl, crypto?: BrantaCryptoProvider) {
+  constructor(
+    defaultOptions?: BrantaApiOptions,
+    fetchImpl?: FetchImpl,
+    crypto?: BrantaCryptoProvider,
+    timeoutMs: number = HTTP_TIMEOUT_MS,
+  ) {
     if (defaultOptions !== undefined) this.defaultOptions = defaultOptions;
     this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.crypto = crypto;
+    this.timeoutMs = timeoutMs;
   }
 
   async getPayments(destinationValue: string, options?: BrantaApiOptions, signal?: AbortSignal): Promise<Payment[]> {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, false);
 
-    const response = await this.fetchGet(`${baseUrl}/v2/payments/${encodeURIComponent(destinationValue)}`, {
-      method: 'GET',
-      headers,
-      ...(signal !== undefined ? { signal } : {}),
-    });
+    const response = await this.fetchWithTimeout(
+      `${baseUrl}/v2/payments/${encodeURIComponent(destinationValue)}`,
+      { method: 'GET', headers },
+      signal,
+      { mapTimeoutToIncomplete: true },
+    );
 
     if (response.status === 404) return [];
     if (!response.ok) throw new IncompleteError(this.statusText(response.status));
@@ -75,12 +86,12 @@ export class BrantaClient implements IBrantaClient {
 
     await this.applyHmacHeaders(headers, baseUrl, json, options);
 
-    const response = await this.fetchImpl(`${baseUrl}/v2/payments`, {
-      method: 'POST',
-      headers,
-      body: json,
-      ...(signal !== undefined ? { signal } : {}),
-    });
+    const response = await this.fetchWithTimeout(
+      `${baseUrl}/v2/payments`,
+      { method: 'POST', headers, body: json },
+      signal,
+      { mapTimeoutToIncomplete: false },
+    );
 
     if (!response.ok) {
       throw new BrantaPaymentException(this.statusText(response.status));
@@ -97,22 +108,55 @@ export class BrantaClient implements IBrantaClient {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, true);
 
-    const response = await this.fetchImpl(`${baseUrl}/v2/api-keys/health-check`, {
-      method: 'GET',
-      headers,
-      ...(signal !== undefined ? { signal } : {}),
-    });
+    const response = await this.fetchWithTimeout(
+      `${baseUrl}/v2/api-keys/health-check`,
+      { method: 'GET', headers },
+      signal,
+      { mapTimeoutToIncomplete: false },
+    );
 
     return response.ok;
   }
 
-  private async fetchGet(url: string, init: RequestInit): Promise<Response> {
+  /**
+   * Runs fetch with a 30s wall clock. Caller abort stays AbortError.
+   * SDK timeout maps to IncompleteError on GET (verify) only.
+   */
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    callerSignal: AbortSignal | undefined,
+    opts: { mapTimeoutToIncomplete: boolean },
+  ): Promise<Response> {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, this.timeoutMs);
+
+    const onCallerAbort = (): void => {
+      controller.abort();
+    };
+    if (callerSignal !== undefined) {
+      if (callerSignal.aborted) controller.abort();
+      else callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+    }
+
     try {
-      return await this.fetchImpl(url, init);
+      return await this.fetchImpl(url, { ...init, signal: controller.signal });
     } catch (err) {
+      if (timedOut) {
+        if (opts.mapTimeoutToIncomplete) throw new IncompleteError('Timeout');
+        throw err instanceof Error ? err : new Error(String(err));
+      }
       if (err instanceof Error && err.name === 'AbortError') throw err;
       const message = err instanceof Error ? err.message : String(err);
-      throw new IncompleteError(message);
+      if (opts.mapTimeoutToIncomplete) throw new IncompleteError(message);
+      throw err instanceof Error ? err : new Error(message);
+    } finally {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', onCallerAbort);
     }
   }
 

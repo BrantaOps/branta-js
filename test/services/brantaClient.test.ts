@@ -4,7 +4,7 @@ import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
 import { BrantaPaymentException } from '../../src/exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../../src/exceptions/incompleteError.js';
-import { BrantaClient } from '../../src/services/brantaClient.js';
+import { BrantaClient, HTTP_TIMEOUT_MS } from '../../src/services/brantaClient.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
 const SameOrigin = 'http://localhost:3000';
@@ -128,6 +128,47 @@ describe('BrantaClient.getPayments HTTP errors', () => {
 
     await expect(client.getPayments('value')).rejects.toBe(abort);
   });
+
+  test('default HTTP timeout is 30s', () => {
+    expect(HTTP_TIMEOUT_MS).toBe(30_000);
+  });
+
+  test('SDK timeout on GET is IncompleteError', async () => {
+    const fakeFetch = jest.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          reject(err);
+        });
+      });
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch, undefined, 20);
+
+    await expect(client.getPayments('value')).rejects.toMatchObject({
+      name: 'IncompleteError',
+      message: 'Timeout',
+    });
+  });
+
+  test('caller abort on GET stays AbortError', async () => {
+    const controller = new AbortController();
+    const fakeFetch = jest.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          reject(err);
+        });
+      });
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch, undefined, 60_000);
+    queueMicrotask(() => controller.abort());
+
+    await expect(client.getPayments('value', undefined, controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+  });
 });
 
 describe('BrantaClient.postPayment HTTP errors', () => {
@@ -149,5 +190,20 @@ describe('BrantaClient.postPayment HTTP errors', () => {
       name: 'BrantaPaymentException',
       message: 'InternalServerError',
     });
+  });
+
+  test('SDK timeout on POST aborts the request', async () => {
+    const fakeFetch = jest.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          reject(err);
+        });
+      });
+    }) as unknown as typeof fetch;
+    const client = new BrantaClient(options, fakeFetch, undefined, 20);
+
+    await expect(client.postPayment(payment)).rejects.toMatchObject({ name: 'AbortError' });
   });
 });
