@@ -72,6 +72,23 @@ const EncryptedUsdcBscAddress = 'encrypted-usdc-bsc-address';
 const brantaUsdtBscLookup = (address = UsdtBscAddress, secret = Secret) =>
   eip681('0x55d398326f99059ff775485246999027b3197955', 56, address, EncryptedUsdtBscAddress, secret);
 
+const UsdcBaseAddress = '0x1111111111111111111111111111111111111112';
+const EncryptedUsdcBaseAddress = 'encrypted-usdc-base-address';
+const UsdtBaseAddress = '0x1111111111111111111111111111111111111113';
+const EncryptedUsdtBaseAddress = 'encrypted-usdt-base-address';
+const UsdcArbitrumAddress = '0x1111111111111111111111111111111111111114';
+const EncryptedUsdcArbitrumAddress = 'encrypted-usdc-arbitrum-address';
+const UsdtArbitrumAddress = '0x1111111111111111111111111111111111111115';
+const EncryptedUsdtArbitrumAddress = 'encrypted-usdt-arbitrum-address';
+const brantaUsdcBaseLookup = (address = UsdcBaseAddress, secret = Secret) =>
+  eip681('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 8453, address, EncryptedUsdcBaseAddress, secret);
+const brantaUsdtBaseLookup = (address = UsdtBaseAddress, secret = Secret) =>
+  eip681('0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', 8453, address, EncryptedUsdtBaseAddress, secret);
+const brantaUsdcArbitrumLookup = (address = UsdcArbitrumAddress, secret = Secret) =>
+  eip681('0xaf88d065e77c8cC2239327C5EDb3A432268e5831', 42161, address, EncryptedUsdcArbitrumAddress, secret);
+const brantaUsdtArbitrumLookup = (address = UsdtArbitrumAddress, secret = Secret) =>
+  eip681('0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 42161, address, EncryptedUsdtArbitrumAddress, secret);
+
 const UsdtTronAddress = 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb';
 const EncryptedUsdtTronAddress = 'encrypted-usdt-tron-address';
 const SwappedTronAddress = 'TXyZ1111111111111111111111111111111';
@@ -139,6 +156,10 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
     if (value === UsdcEthereumAddress && secret === Secret) return EncryptedUsdcEthereumAddress;
     if (value === UsdtBscAddress && secret === Secret) return EncryptedUsdtBscAddress;
     if (value === UsdcBscAddress && secret === Secret) return EncryptedUsdcBscAddress;
+    if (value === UsdcBaseAddress && secret === Secret) return EncryptedUsdcBaseAddress;
+    if (value === UsdtBaseAddress && secret === Secret) return EncryptedUsdtBaseAddress;
+    if (value === UsdcArbitrumAddress && secret === Secret) return EncryptedUsdcArbitrumAddress;
+    if (value === UsdtArbitrumAddress && secret === Secret) return EncryptedUsdtArbitrumAddress;
     if (value === UsdtTronAddress && secret === Secret) return EncryptedUsdtTronAddress;
     if (value === UsdtTonAddress && secret === Secret) return EncryptedUsdtTonAddress;
     if (value === UsdtSolanaAddress && secret === Secret) return EncryptedUsdtSolanaAddress;
@@ -157,6 +178,10 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
     if (encryptedValue === EncryptedUsdcEthereumAddress && secret === Secret) return UsdcEthereumAddress;
     if (encryptedValue === EncryptedUsdtBscAddress && secret === Secret) return UsdtBscAddress;
     if (encryptedValue === EncryptedUsdcBscAddress && secret === Secret) return UsdcBscAddress;
+    if (encryptedValue === EncryptedUsdcBaseAddress && secret === Secret) return UsdcBaseAddress;
+    if (encryptedValue === EncryptedUsdtBaseAddress && secret === Secret) return UsdtBaseAddress;
+    if (encryptedValue === EncryptedUsdcArbitrumAddress && secret === Secret) return UsdcArbitrumAddress;
+    if (encryptedValue === EncryptedUsdtArbitrumAddress && secret === Secret) return UsdtArbitrumAddress;
     if (encryptedValue === EncryptedUsdtTronAddress && secret === Secret) return UsdtTronAddress;
     if (encryptedValue === EncryptedUsdtTonAddress && secret === Secret) return UsdtTonAddress;
     if (encryptedValue === EncryptedUsdtSolanaAddress && secret === Secret) return UsdtSolanaAddress;
@@ -233,6 +258,18 @@ const encryptedUsdtAndUsdcBscPayment = (): Payment =>
     .addDestination(EncryptedUsdtBscAddress, DestinationType.UsdtBsc)
     .addDestination(EncryptedUsdcBscAddress, DestinationType.UsdcBsc)
     .build();
+
+const encryptedUsdcBasePayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdcBaseAddress, DestinationType.UsdcBase).build();
+
+const encryptedUsdtBasePayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdtBaseAddress, DestinationType.UsdtBase).build();
+
+const encryptedUsdcArbitrumPayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdcArbitrumAddress, DestinationType.UsdcArbitrum).build();
+
+const encryptedUsdtArbitrumPayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdtArbitrumAddress, DestinationType.UsdtArbitrum).build();
 
 const encryptedUsdtTronPayment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedUsdtTronAddress, DestinationType.UsdtTron).build();
@@ -379,6 +416,14 @@ describe('BrantaService', () => {
       expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
+    test.each([
+      `eth:${UsdtEthereumAddress}?branta_id=abc&branta_secret=1234`,
+      `bsc:${UsdtBscAddress}?branta_id=abc&branta_secret=1234`,
+    ])('verify_legacyChainUri_returnsUnknownWithoutGet', async (uri) => {
+      expectUnknown(await service.verify(uri));
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
     test('verify_ethUsdtUri_returnsMatch', async () => {
       clientMock.getPayments.mockImplementation(async (lookup: string) => {
         if (lookup === EncryptedUsdtEthereumAddress) return [encryptedUsdtEthereumPayment()];
@@ -422,6 +467,26 @@ describe('BrantaService', () => {
       expect(payments[0]!.destinations[1]!.isEncrypted).not.toBe(false);
       expect(matchedDestinations).toHaveLength(1);
       expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdtEthereum);
+    });
+
+    test('verify_ethUsdcUri_againstUsdtOnlyPayment_returnsUnknown', async () => {
+      const payment = encryptedUsdtEthereumPayment();
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtEthereumAddress) return [payment];
+        return [];
+      });
+
+      const uri = eip681(
+        '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        1,
+        UsdtEthereumAddress,
+        EncryptedUsdtEthereumAddress,
+        Secret,
+      );
+      expectUnknown(await service.verify(uri));
+      expect(clientMock.getPayments).toHaveBeenCalledWith(EncryptedUsdtEthereumAddress, undefined, undefined);
+      expect(payment.destinations[0]!.value).toBe(EncryptedUsdtEthereumAddress);
+      expect(aesMock.decrypt).not.toHaveBeenCalled();
     });
 
     test('verify_ethUsdtUri_swappedAddress_tamperedWhenSiblingUsdcDoesNotMatch', async () => {
@@ -528,6 +593,61 @@ describe('BrantaService', () => {
       });
 
       expectTampered(await service.verify(brantaUsdtBscLookup(SwappedEvmAddress)));
+    });
+
+    test.each([
+      [DestinationType.UsdcBase, brantaUsdcBaseLookup, EncryptedUsdcBaseAddress, encryptedUsdcBasePayment, UsdcBaseAddress],
+      [DestinationType.UsdtBase, brantaUsdtBaseLookup, EncryptedUsdtBaseAddress, encryptedUsdtBasePayment, UsdtBaseAddress],
+      [DestinationType.UsdcArbitrum, brantaUsdcArbitrumLookup, EncryptedUsdcArbitrumAddress, encryptedUsdcArbitrumPayment, UsdcArbitrumAddress],
+      [DestinationType.UsdtArbitrum, brantaUsdtArbitrumLookup, EncryptedUsdtArbitrumAddress, encryptedUsdtArbitrumPayment, UsdtArbitrumAddress],
+    ] as const)('verify_%s_returnsMatch', async (type, lookup, encrypted, payment, address) => {
+      clientMock.getPayments.mockImplementation(async (id: string) => {
+        if (id === encrypted) return [payment()];
+        return [];
+      });
+
+      const { matchedDestinations } = expectMatch(await service.verify(lookup()));
+      expect(matchedDestinations).toEqual([
+        expect.objectContaining({ value: address, type, isEncrypted: false }),
+      ]);
+    });
+
+    test('verify_usdcBaseUri_swappedAddress_isTampered', async () => {
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdcBaseAddress) return [encryptedUsdcBasePayment()];
+        return [];
+      });
+
+      expectTampered(await service.verify(brantaUsdcBaseLookup(SwappedEvmAddress)));
+    });
+
+    test('verify_usdcBaseUri_againstUsdtBaseOnlyPayment_returnsUnknown', async () => {
+      const payment = encryptedUsdtBasePayment();
+      clientMock.getPayments.mockImplementation(async (lookup: string) => {
+        if (lookup === EncryptedUsdtBaseAddress) return [payment];
+        return [];
+      });
+
+      const uri = eip681(
+        '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        8453,
+        UsdtBaseAddress,
+        EncryptedUsdtBaseAddress,
+        Secret,
+      );
+      expectUnknown(await service.verify(uri));
+      expect(payment.destinations[0]!.value).toBe(EncryptedUsdtBaseAddress);
+      expect(aesMock.decrypt).not.toHaveBeenCalled();
+    });
+
+    test('verify_eip681WrongChainOrUnknownContract_returnsUnknownWithoutGet', async () => {
+      const deposit = '0x1111111111111111111111111111111111111111';
+      const wrongChain = `ethereum:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913@1/transfer?address=${deposit}&uint256=1000000&branta_id=abc&branta_secret=1234`;
+      const unknownContract = `ethereum:0x0000000000000000000000000000000000000001@8453/transfer?address=${deposit}&uint256=1000000&branta_id=abc&branta_secret=1234`;
+
+      expectUnknown(await service.verify(wrongChain));
+      expectUnknown(await service.verify(unknownContract));
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
     });
 
     test('verify_tronUsdtUri_returnsMatch', async () => {
@@ -1456,6 +1576,10 @@ describe('BrantaService', () => {
     test.each([
       [UsdtEthereumAddress, DestinationType.UsdtEthereum, EncryptedUsdtEthereumAddress],
       [UsdtBscAddress, DestinationType.UsdtBsc, EncryptedUsdtBscAddress],
+      [UsdcBaseAddress, DestinationType.UsdcBase, EncryptedUsdcBaseAddress],
+      [UsdtBaseAddress, DestinationType.UsdtBase, EncryptedUsdtBaseAddress],
+      [UsdcArbitrumAddress, DestinationType.UsdcArbitrum, EncryptedUsdcArbitrumAddress],
+      [UsdtArbitrumAddress, DestinationType.UsdtArbitrum, EncryptedUsdtArbitrumAddress],
       [UsdtTronAddress, DestinationType.UsdtTron, EncryptedUsdtTronAddress],
       [UsdtTonAddress, DestinationType.UsdtTon, EncryptedUsdtTonAddress],
       [UsdcSolanaAddress, DestinationType.UsdcSolana, EncryptedUsdcSolanaAddress],

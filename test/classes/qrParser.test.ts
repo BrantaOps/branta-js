@@ -2,6 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 
 import {
   DestinationType,
+  EVM_TOKEN_RAILS,
   TRON_DESTINATION_TYPES,
   TON_DESTINATION_TYPES,
   SOLANA_DESTINATION_TYPES,
@@ -131,6 +132,37 @@ describe('QRParser', () => {
     expect(result.destinationType).toBe(DestinationType.UsdtPolygon);
     expect(result.expectedSecretKeyTypes).toEqual([DestinationType.UsdtPolygon]);
     expect(result.onChainEncryptionText).toBeUndefined();
+  });
+
+  test.each(EVM_TOKEN_RAILS)('qrParser_eip681_$type_bindsDepositAndOneType', (rail) => {
+    const address = '0x1111111111111111111111111111111111111111';
+    const result = new QRParser(
+      `ethereum:${rail.contract}@${rail.chainId}/transfer?address=${address}&uint256=1&branta_id=id&branta_secret=sec`,
+    );
+
+    expect(result.destination).toBe(address);
+    expect(result.destinationType).toBe(rail.type);
+    expect(result.expectedSecretKeyTypes).toEqual([rail.type]);
+    expect(result.onChainEncryptionText).toBe('id');
+    expect(result.onChainEncryptionSecret).toBe('sec');
+  });
+
+  test('qrParser_eip681_doesNotBindIncompleteForms', () => {
+    const deposit = '0x1111111111111111111111111111111111111111';
+    const contract = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+    const forms = [
+      `ethereum:${contract}/transfer?address=${deposit}&branta_id=abc&branta_secret=1234`,
+      `ethereum:pay-${contract}@8453/transfer?address=${deposit}&branta_id=abc&branta_secret=1234`,
+      `ethereum://${contract}@8453/transfer?address=${deposit}&branta_id=abc&branta_secret=1234`,
+      `ethereum:${contract}@8453/approve?address=${deposit}&uint256=1&branta_id=abc&branta_secret=1234`,
+      `ethereum:${contract}@8453/transfer?uint256=1&branta_id=abc&branta_secret=1234`,
+    ];
+
+    for (const uri of forms) {
+      const result = new QRParser(uri);
+      expect(result.expectedSecretKeyTypes).toBeUndefined();
+      expect(result.onChainEncryptionText).toBeUndefined();
+    }
   });
 
   test('qrParser_eip681_unknownContractOrOldScheme_doesNotBind', () => {
