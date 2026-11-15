@@ -79,7 +79,7 @@ const brantaId = created.destinations[0].value;
 bitcoin:<address>?branta_id=<url-encoded branta_id>&branta_secret=<secret>
 ```
 
-A stablecoin destination is the deposit address plus its type, for example `DestinationType.UsdcBase`. The invoice is an ERC-681 transfer with the same two params. Chain ids, contracts, and decimals are on [Destination types](https://developer.branta.pro/destination-types).
+A stablecoin destination is the deposit address plus its type, for example `DestinationType.UsdcBase`. The invoice is an ERC-681 transfer with the same two params. Chain ids and contracts are on [Destination types](https://developer.branta.pro/destination-types).
 
 ```
 ethereum:<token-contract>@<chain-id>/transfer?address=<deposit>&uint256=<base-units>&branta_id=<url-encoded branta_id>&branta_secret=<secret>
