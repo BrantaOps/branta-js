@@ -1,9 +1,8 @@
 import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
+import { encodeUtf8 } from '../encoding/webText.js';
 import { BrantaEnvironment, BrantaEnvironmentUrls } from '../enums/brantaEnvironment.js';
 import { DestinationType } from '../enums/destinationType.js';
-
-type Bytes = Uint8Array<ArrayBuffer>;
 
 const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
   const c = crypto ?? (globalThis as { crypto?: Pick<Crypto, 'subtle'> }).crypto;
@@ -58,7 +57,7 @@ export function getDerivedKeyType(value: string): DestinationType | undefined {
 
 export async function toNormalizedHash(value: string, crypto?: BrantaCryptoProvider): Promise<string> {
   const normalized = value.toLowerCase();
-  const bytes = new TextEncoder().encode(normalized) as Bytes;
+  const bytes = encodeUtf8(normalized);
   const hash = new Uint8Array(await resolveSubtle(crypto).digest('SHA-256', bytes));
   let hex = '';
   for (let i = 0; i < hash.length; i++) {

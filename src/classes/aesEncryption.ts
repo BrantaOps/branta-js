@@ -1,3 +1,4 @@
+import { decodeBase64, decodeUtf8, encodeBase64, encodeUtf8 } from '../encoding/webText.js';
 import type { BrantaCryptoProvider } from './brantaCryptoProvider.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
@@ -23,26 +24,13 @@ const getRandomBytes = (length: number, crypto?: BrantaCryptoProvider): Bytes =>
   return c.getRandomValues(new Uint8Array(length));
 };
 
-const utf8Bytes = (text: string): Bytes => new TextEncoder().encode(text);
+const utf8Bytes = (text: string): Bytes => encodeUtf8(text);
 
-const utf8String = (bytes: Bytes): string => new TextDecoder().decode(bytes);
+const utf8String = (bytes: Bytes): string => decodeUtf8(bytes);
 
-const toBase64 = (bytes: Bytes): string => {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
-  return btoa(binary);
-};
+const toBase64 = (bytes: Bytes): string => encodeBase64(bytes);
 
-const fromBase64 = (value: string): Bytes => {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-};
+const fromBase64 = (value: string): Bytes => decodeBase64(value);
 
 const sha256 = async (bytes: Bytes, crypto?: BrantaCryptoProvider): Promise<Bytes> => {
   const hash = await resolveSubtle(crypto).digest('SHA-256', bytes);
