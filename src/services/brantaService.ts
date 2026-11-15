@@ -80,7 +80,7 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   return first;
 };
 
-/** Scheme → rail family from the parser (match-if-any within the set). */
+/** Types this scan may decrypt. One ERC-681 rail, or bitcoin. */
 const expectedSecretKeyTypes = (parser: QRParser): ReadonlySet<DestinationType> | undefined => {
   if (parser.expectedSecretKeyTypes === undefined || parser.expectedSecretKeyTypes.length === 0) {
     return undefined;
@@ -277,7 +277,7 @@ export class BrantaService implements IBrantaService {
       destination.isEncrypted = true;
 
       if (destination.type === undefined || !isSecretKeyAddressType(destination.type)) continue;
-      // Outside this QR's rail family (e.g. bitcoin when scanning pol:) — leave encrypted.
+      // Outside this scan's destination type — leave encrypted.
       if (expectedOnChainTypes !== undefined && !expectedOnChainTypes.has(destination.type)) continue;
       if (encryptionKey === undefined) continue;
       let decrypted: string;
@@ -294,7 +294,7 @@ export class BrantaService implements IBrantaService {
         continue;
       }
       decryptedExpectedRail = true;
-      // Match-if-any within the family: a sibling rail with a different address stays encrypted.
+      // A decrypted value that is not the scanned address stays encrypted.
       if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
         continue;
       }
@@ -306,7 +306,7 @@ export class BrantaService implements IBrantaService {
       }
       await this.tryDecryptMetadata(payment, destination, encryptionKey);
     }
-    // Tampered only when a family rail decrypted and none matched the scanned address.
+    // Tampered only when a destination of the scanned type decrypted and none matched the address.
     if (expectedOnChainAddress !== undefined && !onChainBound && decryptedExpectedRail) {
       throw new TamperedError();
     }

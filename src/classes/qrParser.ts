@@ -1,9 +1,9 @@
-import { DestinationType, SECRET_KEY_URI_FAMILIES } from '../enums/destinationType.js';
+import { DestinationType, evmTokenType } from '../enums/destinationType.js';
 import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
-  /** Known rail type when the scheme or payload names one (e.g. bitcoin). Not set for chain URI schemes. */
+  /** Rail this value belongs to. Set for bitcoin and ERC-681. */
   type?: DestinationType;
   /** Visible address that participates in the secret-key swap check. */
   secretKey?: boolean;
@@ -65,6 +65,22 @@ const getDestinationType = (text: string): DestinationType | undefined => {
   return undefined;
 };
 
+const EIP681_PATH = /^(0x[0-9a-fA-F]{40})@([0-9]+)\/transfer$/;
+const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/i;
+
+/** ERC-681 token transfer. Chain id and contract select one destination type. The deposit address is the `address` query param. */
+const parseEip681 = (uri: URL): { type: DestinationType; address: string } | undefined => {
+  const match = EIP681_PATH.exec(uri.pathname.replace(/^\//, ''));
+  if (match === null) return undefined;
+  const chainId = Number(match[2]);
+  if (!Number.isSafeInteger(chainId)) return undefined;
+  const type = evmTokenType(chainId, match[1]!);
+  if (type === undefined) return undefined;
+  const address = parseQueryString(uri.search).get('address');
+  if (address === undefined || !EVM_ADDRESS.test(address)) return undefined;
+  return { type, address };
+};
+
 const parseQueryString = (query: string): Map<string, string> => {
   const result = new Map<string, string>();
   const trimmed = query.replace(/^\?/, '');
@@ -91,8 +107,9 @@ export class QRParser {
   onChainEncryptionText?: string;
   onChainEncryptionSecret?: string;
   /**
-   * Destination types `verify` may bind for this QR's scheme (match-if-any).
-   * Set from the URI scheme — not from a token stamped on the address.
+   * Destination types this scan may decrypt.
+   * ERC-681 sets one type from the chain id and token contract.
+   * Bitcoin sets `bitcoin_address`.
    */
   expectedSecretKeyTypes?: readonly DestinationType[];
   /** A payable instruction this SDK cannot bind to a decrypted destination. */
@@ -108,17 +125,17 @@ export class QRParser {
     }
 
     const scheme = uri.protocol.replace(/:$/, '').toLowerCase();
-    const secretKeyFamily = SECRET_KEY_URI_FAMILIES[scheme];
-    if (secretKeyFamily !== undefined) {
-      const dest = getDestination(text);
-      if (dest !== undefined) {
-        // Address only — token comes from the matched payment destination after verify.
-        this.destinations.push({ value: dest, secretKey: true });
-        this.expectedSecretKeyTypes = secretKeyFamily;
+    if (scheme === 'ethereum') {
+      const transfer = parseEip681(uri);
+      if (transfer !== undefined) {
+        this.destinations.push({ value: transfer.address, type: transfer.type, secretKey: true });
+        this.expectedSecretKeyTypes = [transfer.type];
+        const queryParams = parseQueryString(uri.search);
+        this.onChainEncryptionText = queryParams.get('branta_id');
+        this.onChainEncryptionSecret = queryParams.get('branta_secret');
+      } else {
+        this.destinations.push({ value: text });
       }
-      const queryParams = parseQueryString(uri.search);
-      this.onChainEncryptionText = queryParams.get('branta_id');
-      this.onChainEncryptionSecret = queryParams.get('branta_secret');
       return;
     }
 

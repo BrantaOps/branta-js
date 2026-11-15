@@ -33,9 +33,11 @@ describeLiveWrite('Staging usdt_polygon round-trip', () => {
 
   const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
   const swapped = '0x1111111111111111111111111111111111111111';
+  const contract = '0xc2132d05d31c914a87c6611c10748aeb04b58e8f';
+  const chainId = 137;
 
-  const polUri = (recipient: string, encrypted: string, secret: string) =>
-    `pol:${recipient}?value=50&user=send&currency=USD&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+  const transferUri = (recipient: string, encrypted: string, secret: string) =>
+    `ethereum:${contract}@${chainId}/transfer?address=${recipient}&uint256=1000000&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
 
   test('addPayment then verify match, case-insensitive, tampered, and bare unknown', async () => {
     const payment = service
@@ -49,22 +51,24 @@ describeLiveWrite('Staging usdt_polygon round-trip', () => {
 
     expect(created.destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
 
-    const match = await service.verify(polUri(address, encrypted, secret));
+    const match = await service.verify(transferUri(address, encrypted, secret));
     expect(match.status).toBe(VerifyStatus.Match);
     if (match.status !== VerifyStatus.Match) throw new Error('expected match');
     expect(match.payments[0]!.destinations[0]!.type).toBe(DestinationType.UsdtPolygon);
     expect(match.payments[0]!.destinations[0]!.value.toLowerCase()).toBe(address.toLowerCase());
 
-    const lower = await service.verify(polUri(address.toLowerCase(), encrypted, secret));
+    const lower = await service.verify(transferUri(address.toLowerCase(), encrypted, secret));
     expect(lower.status).toBe(VerifyStatus.Match);
 
-    const tampered = await service.verify(polUri(swapped, encrypted, secret));
+    const tampered = await service.verify(transferUri(swapped, encrypted, secret));
     expect(tampered.status).toBe(VerifyStatus.Tampered);
 
     const bare = await service.verify(address);
     expect(bare.status).toBe(VerifyStatus.Unknown);
 
-    const polWithoutBranta = await service.verify(`pol:${address}?value=50&currency=USD`);
-    expect(polWithoutBranta.status).toBe(VerifyStatus.Unknown);
+    const withoutBranta = await service.verify(
+      `ethereum:${contract}@${chainId}/transfer?address=${address}&uint256=1000000`,
+    );
+    expect(withoutBranta.status).toBe(VerifyStatus.Unknown);
   }, 30000);
 });

@@ -2,7 +2,7 @@
 
 JavaScript SDK for [Branta](https://developer.branta.pro). ESM only.
 
-Use `verify()` on send and `addPayment()` on receive. Status handling and parent platforms are in the [developer docs](https://developer.branta.pro).
+`verify()` on send. `addPayment()` on receive. Parent platforms are in the [developer docs](https://developer.branta.pro).
 
 ## Install
 
@@ -12,38 +12,43 @@ npm i @branta-ops/branta
 
 ## Send
 
+Pass the scanned QR or pasted text through unchanged. Use `BrantaEnvironment.Staging` until you go live.
+
 ```ts
 import { BrantaEnvironment, BrantaService } from "@branta-ops/branta";
 
 const service = new BrantaService({
-  environment: BrantaEnvironment.Production, // Staging everywhere else
+  environment: BrantaEnvironment.Production,
 });
 
-const result = await service.verify(input); // scanned QR or pasted text
+const result = await service.verify(input);
 
 switch (result.status) {
   case "match":
-    // Show the card for result.payments[0]. Link it to result.verifyUrl.
-    // What to send is result.matchedDestinations — each has type + plaintext value.
-    // e.g. usdt_polygon / usdc_polygon / bitcoin_address / bolt11. Do not infer token from pol:.
+    // Card: result.payments[0]. Link result.verifyUrl.
+    // Pay result.matchedDestinations[0].value for result.matchedDestinations[0].type.
     break;
   case "unknown":
-    // Not in Branta — show nothing.
+    // Not in Branta, including a 404. Show nothing.
     break;
   case "tampered":
-    // Destination was altered. Warn. Do not show a verified card.
+    // The destination was altered. Warn. Do not show a verified card.
     break;
   case "incomplete":
-    // 5xx, 429, or unreachable. Tell the user. Do not treat as unknown.
+    // 5xx, 429, no network, or the 30s timeout. Tell the user. Do not block send.
     break;
 }
 ```
 
-On-chain Bitcoin needs a `bitcoin:` URI with `branta_id` / `branta_secret`. Polygon EVM rails (`usdt_polygon`, `usdc_polygon`) need a `pol:` URI with the same params — token is on `matchedDestinations[].type`, not the `pol:` scheme. bolt11, Ark, and silent payments resolve from the value. A bare address (including bare `0x`) is `unknown`.
+A unified QR can bind more than one entry in `matchedDestinations`. Honor each `type`. The asset is that `type`. Every EVM stablecoin uses the `ethereum:` scheme.
 
-Missing crypto throws `crypto_unavailable`. Do not treat that as `unknown`. A 404 is `unknown`. 5xx, 429, no network, or a 30s HTTP timeout is `incomplete`.
+Bitcoin is a `bitcoin:` URI with `branta_id` and `branta_secret`. EVM USDT and USDC on Ethereum, Polygon, BNB Smart Chain, Base, and Arbitrum are an ERC-681 transfer URI with the same params. The chain id and token contract select the type. `uint256` is not part of the match. bolt11, Ark, and silent payments resolve from the value. A bare address, including a bare `0x`, is `unknown`.
+
+A missing crypto implementation throws `crypto_unavailable`.
 
 ## Receive
+
+Hold the API key server-side. `addPayment` encrypts a copy and leaves the caller's `Payment` unchanged.
 
 ```ts
 import {
@@ -64,10 +69,21 @@ const payment = new PaymentBuilder()
   .setTtl(600) // seconds
   .build();
 
-const { secret, verifyUrl } = await service.addPayment(payment);
+const { payment: created, secret, verifyUrl } = await service.addPayment(payment);
+const brantaId = created.destinations[0].value;
 ```
 
-Store `secret` with the invoice. Put `branta_id` and `branta_secret` on the invoice QR.
+`branta_id` is that ciphertext, URL-encoded. `branta_secret` is `secret`. Link the sender to `verifyUrl`.
+
+```
+bitcoin:<address>?branta_id=<url-encoded branta_id>&branta_secret=<secret>
+```
+
+A stablecoin destination is the deposit address plus its type, for example `DestinationType.UsdcBase`. The invoice is an ERC-681 transfer with the same two params. Chain ids and contracts are on [Destination types](https://developer.branta.pro/destination-types).
+
+```
+ethereum:<token-contract>@<chain-id>/transfer?address=<deposit>&uint256=<base-units>&branta_id=<url-encoded branta_id>&branta_secret=<secret>
+```
 
 ## Crypto
 
