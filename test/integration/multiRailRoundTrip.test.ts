@@ -27,12 +27,11 @@ const uniq = () => Date.now().toString(36) + Math.random().toString(36).slice(2,
 type SecretKeyRail = {
   kind: 'secret';
   type: DestinationType;
-  scheme: string;
   address: string;
   swapped: string;
   /** EVM addresses fold case for match. */
   caseFold?: boolean;
-  /** Set for EIP-681 EVM rails. `scheme` is unused for the verify string. */
+  /** Set for EIP-681 EVM rails. Bitcoin leaves it unset. */
   eip681?: { chainId: number; contract: string };
 };
 
@@ -47,14 +46,12 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.BitcoinAddress,
-    scheme: 'bitcoin',
     address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
     swapped: 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4',
   },
   {
     kind: 'secret',
     type: DestinationType.UsdtPolygon,
-    scheme: 'pol',
     address: '0x278297528c32eCa01295B0d2135984d3442ec963',
     swapped: '0x1111111111111111111111111111111111111111',
     caseFold: true,
@@ -63,7 +60,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdcPolygon,
-    scheme: 'pol',
     address: '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B',
     swapped: '0x2222222222222222222222222222222222222222',
     caseFold: true,
@@ -72,7 +68,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdtEthereum,
-    scheme: 'eth',
     address: '0xBF5550253939187432Ef4dccE8089765d3DCb47f',
     swapped: '0x3333333333333333333333333333333333333333',
     caseFold: true,
@@ -81,7 +76,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdcEthereum,
-    scheme: 'eth',
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
     swapped: '0x4444444444444444444444444444444444444444',
     caseFold: true,
@@ -90,7 +84,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdtBsc,
-    scheme: 'bsc',
     address: '0x55d398326f99059fF775485246999027B3197955',
     swapped: '0x5555555555555555555555555555555555555555',
     caseFold: true,
@@ -99,7 +92,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdcBsc,
-    scheme: 'bsc',
     address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
     swapped: '0x6666666666666666666666666666666666666666',
     caseFold: true,
@@ -108,7 +100,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdcBase,
-    scheme: 'base',
     address: '0x1111111111111111111111111111111111111112',
     swapped: '0x1111111111111111111111111111111111111113',
     caseFold: true,
@@ -117,7 +108,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdtBase,
-    scheme: 'base',
     address: '0x1111111111111111111111111111111111111114',
     swapped: '0x1111111111111111111111111111111111111115',
     caseFold: true,
@@ -126,7 +116,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdcArbitrum,
-    scheme: 'arbitrum',
     address: '0x1111111111111111111111111111111111111116',
     swapped: '0x1111111111111111111111111111111111111117',
     caseFold: true,
@@ -135,7 +124,6 @@ const secretKeyRails: SecretKeyRail[] = [
   {
     kind: 'secret',
     type: DestinationType.UsdtArbitrum,
-    scheme: 'arbitrum',
     address: '0x1111111111111111111111111111111111111118',
     swapped: '0x1111111111111111111111111111111111111119',
     caseFold: true,
@@ -162,7 +150,7 @@ const derivedKeyRails: DerivedKeyRail[] = [
 ];
 
 const secretKeyUri = (
-  rail: Pick<SecretKeyRail, 'scheme' | 'eip681'>,
+  rail: Pick<SecretKeyRail, 'eip681'>,
   recipient: string,
   encrypted: string,
   secret: string,
@@ -170,14 +158,14 @@ const secretKeyUri = (
   if (rail.eip681 !== undefined) {
     return `ethereum:${rail.eip681.contract}@${rail.eip681.chainId}/transfer?address=${recipient}&uint256=1000000&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
   }
-  return `${rail.scheme}:${recipient}?branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+  return `bitcoin:${recipient}?branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
 };
 
 const uriWithoutBranta = (rail: SecretKeyRail) => {
   if (rail.eip681 !== undefined) {
     return `ethereum:${rail.eip681.contract}@${rail.eip681.chainId}/transfer?address=${rail.address}&uint256=1000000`;
   }
-  return `${rail.scheme}:${rail.address}`;
+  return `bitcoin:${rail.address}`;
 };
 
 describeLiveWrite('Staging multi-rail SDK round-trips', () => {
@@ -278,7 +266,7 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
     45000,
   );
 
-  test('cross-scheme: eth URI must not bind a polygon-only payment', async () => {
+  test('cross-chain: an Ethereum USDT URI must not bind a Polygon-only payment', async () => {
     const address = '0x278297528c32eCa01295B0d2135984d3442ec963';
     const payment = service
       .createPaymentBuilder()
@@ -291,7 +279,7 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
 
     const cross = await service.verify(
       secretKeyUri(
-        { scheme: 'eth', eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' } },
+        { eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' } },
         address,
         encrypted,
         secret,
@@ -301,7 +289,7 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
 
     const correct = await service.verify(
       secretKeyUri(
-        { scheme: 'pol', eip681: { chainId: 137, contract: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' } },
+        { eip681: { chainId: 137, contract: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f' } },
         address,
         encrypted,
         secret,
@@ -324,8 +312,8 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
     // Same branta_id can be either ciphertext; use the USDT leg as lookup (first destination).
     const encryptedUsdt = created.destinations[0]!.value;
 
-    const ethUsdt = { scheme: 'eth', eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' } };
-    const ethUsdc = { scheme: 'eth', eip681: { chainId: 1, contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' } };
+    const ethUsdt = { eip681: { chainId: 1, contract: '0xdAC17F958D2ee523a2206206994597C13D831ec7' } };
+    const ethUsdc = { eip681: { chainId: 1, contract: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' } };
     const matchUsdt = await service.verify(secretKeyUri(ethUsdt, usdt, encryptedUsdt, secret));
     expect(matchUsdt.status).toBe(VerifyStatus.Match);
     if (matchUsdt.status !== VerifyStatus.Match) throw new Error('expected usdt match');
