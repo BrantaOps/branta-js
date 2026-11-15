@@ -2,6 +2,7 @@ import type { BrantaCryptoProvider } from '../classes/brantaCryptoProvider.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaPaymentException } from '../exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../exceptions/incompleteError.js';
+import { encodeUtf8 } from '../encoding/webText.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
@@ -17,7 +18,7 @@ const resolveSubtle = (crypto?: BrantaCryptoProvider): SubtleCrypto => {
   return c.subtle;
 };
 
-const utf8Bytes = (text: string): Bytes => new TextEncoder().encode(text);
+const utf8Bytes = (text: string): Bytes => encodeUtf8(text);
 
 const hmacSha256Hex = async (keyBytes: Bytes, messageBytes: Bytes, crypto?: BrantaCryptoProvider): Promise<string> => {
   const subtle = resolveSubtle(crypto);

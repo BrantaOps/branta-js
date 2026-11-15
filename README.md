@@ -75,7 +75,7 @@ Browsers on HTTPS: nothing to do.
 
 Browsers on HTTP, or React Native / Expo: pass `crypto`, and use `service.createPaymentBuilder()` instead of `new PaymentBuilder()`.
 
-**React Native / Expo** — `@noble`:
+**React Native / Expo** — `@noble`. Hermes may omit `TextDecoder`, `btoa`, or `atob`. The SDK falls back to pure-JavaScript UTF-8 and base64 for those, so a missing global is not reported as `unknown`. A missing Web Crypto or noble provider is still `crypto_unavailable`:
 
 ```bash
 npm i @noble/hashes @noble/ciphers
