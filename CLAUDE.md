@@ -1,10 +1,29 @@
 # Branta JS SDK
 
-If you are implementing this SDK in a consumer project: product rules (send vs receive, `match` / `unknown` / `tampered`, parent platforms) live in the [developer docs](https://developer.branta.pro). `README.md` is the JavaScript — install, constructor, samples, and crypto.
+TypeScript/ESM SDK published as `@branta-ops/branta`. Consumers (wallets, platforms, parent platforms) call `BrantaService` to look up or post payments to Branta's V2 API. `README.md` is the install, constructor, samples, and crypto guide.
 
----
+## Behavior contract
 
-TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consumers (wallets, platforms, parent platforms) call `BrantaService` to look up or post payments to Branta's V2 API. Mirrors the .NET SDK at [github.com/BrantaOps/branta-dotnet](https://github.com/BrantaOps/branta-dotnet) and should be kept feature-parity with it.
+What `verify` returns, how ERC-681 is parsed, which rails encrypt with what key, and which failures are statuses all live in the developer docs: [Verify rules](https://developer.branta.pro/tech/verify-rules). Send handling is on [Send](https://developer.branta.pro/setup/send), and the type list on [Destination types](https://developer.branta.pro/destination-types). Do not restate them here. Change the docs first, then the SDK.
+
+Invariants that break silently. Check them before you change `verify` or `addPayment`:
+
+- A raw on-chain address (including `tb1` / `bcrt1` / bare `0x`) is `unknown` and does not GET.
+- A swapped address is `tampered`. A status never throws.
+- `uint256` is not bound. The token is `matchedDestinations[].type`, never the URI scheme.
+- `pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` do not verify.
+- A logo-domain mismatch throws. Every other failure is a status.
+- `addPayment` encrypts a copy and leaves the caller's `Payment` unchanged.
+- Keep parity with every 4.x Branta SDK. A public method added or changed here is mirrored in each of them.
+
+## JS specifics
+
+- A missing crypto implementation throws `CryptoUnavailable` (`crypto_unavailable`). It is not a status.
+- A caller `AbortSignal` cancel is not `incomplete`. A 30s HTTP timeout is.
+- `Destination.id` is sent as `zk_id`. `zk: true` is always sent.
+- `verify` parses first. Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
+- `DestinationType` is only what `addPayment` accepts. It also includes `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana`. They can be posted but no URI verifies them, and they are not on the public Destination types page. There is no `usdc_ton`.
+- Do not reintroduce `BrantaClientOptions`, `defaultApiKey`, `BrantaServerBaseUrl`, `QRParseException`, `Destination.zkId`, `Payment.btcPayServerPluginVersion`, or a two-argument `BrantaService` constructor.
 
 ## Package layout
 - `src/index.ts` — the public package entry (`BrantaService`, `PaymentBuilder`, `DestinationType`, options, exceptions, `createNobleCryptoProvider`).
@@ -19,18 +38,8 @@ TypeScript/ESM port of the Branta SDK, published as `@branta-ops/branta`. Consum
 - `npm run clean` — `rm -rf dist`.
 - Release: `npm login`, `npm version major|minor|patch`, `npm publish`. `prepublishOnly` rebuilds.
 
-## Key behaviors to preserve when editing the SDK
-- **Unencrypted destinations are not supported.** `verify` is the only lookup: QR scan and clipboard paste use the same call. A raw on-chain address (including testnet `tb1` / `bcrt1`) is `unknown` and does not GET. `addPayment` encrypts every destination; types that cannot be encrypted throw.
-- **`DestinationType` is only what `addPayment` accepts:** `bitcoin_address`, `bolt11`, `ark_address`, `silent_payment`, `usdt_polygon`, `usdc_polygon`, `usdt_ethereum`, `usdc_ethereum`, `usdt_bsc`, `usdc_bsc`, `usdt_base`, `usdc_base`, `usdt_arbitrum`, `usdc_arbitrum`, `usdt_tron`, `usdt_ton`, `usdt_solana`, `usdc_solana`. BIP21 extras this SDK cannot encrypt (`lno`, `pay`, non-bolt11 `lightning`) make `verify()` return `unknown`; they are not destination types. EVM USDT/USDC verify is ERC-681 `ethereum:<contract>@<chainId>/transfer?address=<deposit>`. Chain id plus contract select one destination type (`EVM_TOKEN_RAILS`). `pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` do not verify. `addPayment` still encrypts `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana`. A bare `0x` address is `unknown`. No `usdc_ton`.
-- **`verify()` returns `VerifyResult`.** `match` includes `payments`, `matchedDestinations`, and `verifyUrl`. `matchedDestinations` is what this scan bound (plaintext + `type`) — wallets send from that list, not by filtering `payments[].destinations`. `unknown`, `tampered`, and `incomplete` include only `verifyUrl`. Do not throw for a swapped address. A 404 is `unknown`. 5xx, 429, no network, and a 30s HTTP timeout are `incomplete`. Caller `AbortSignal` cancel is not `incomplete`. `CryptoUnavailable` still throws. `branta_id` / `branta_secret` with no payable destination is `unknown`, not `match`. A bolt11 / Ark / silent-payment GET hit is `unknown` unless a destination of that type decrypts.
-- **`verifyUrl` is always returned.** Format: `{apiOrigin}/v2/verify/{lookup}` plus a URL fragment built from per-destination encryption keys on `match`.
-- **Encryption.** Bitcoin and stablecoin address rails are encrypted with a caller-supplied secret (random UUID via `GuidSecretGenerator`); bolt11, Ark, and silent payments are encrypted with a key derived from a normalized hash of the value, so the same input always produces the same lookup token. `addPayment` encrypts a copy and posts that copy, leaving the caller's `Payment` unchanged so a failed post can be retried with the same instance. Guardrail still receives `zk: true` and `zk_id` on each destination (`Destination.id` in JS).
-- **Public names.** `BrantaServiceOptions` is the constructor argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). `BrantaApiOptions` is per-call overrides. `BrantaEnvironment`. Do not reintroduce `BrantaClientOptions`, `defaultApiKey`, `BrantaServerBaseUrl`, `QRParseException`, `Destination.zkId`, `Payment.btcPayServerPluginVersion`, or a two-argument `BrantaService` constructor.
-- **`verify` parses first.** Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
-- **Never surface `unknown` or thrown errors to the user.** `tampered` is the exception: warn, do not show a verified card.
-
 ## Conventions
 - ESM-only (`"type": "module"` in `package.json`). Local imports must use `.js` extensions even from `.ts` files; Jest's `moduleNameMapper` strips them at test time.
 - Public API is whatever `src/index.ts` exports. Do not add `BrantaClient`, `QRParser`, AES classes, `GuidSecretGenerator`, `QRParseException`, or `IncompleteError` to that list.
+- Public names: `BrantaServiceOptions` is the constructor argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). `BrantaApiOptions` is per-call overrides. `BrantaEnvironment`.
 - `BrantaService` takes one `BrantaServiceOptions` argument. Every public method accepts optional per-call `BrantaApiOptions`; respect that pattern when adding new methods.
-- Keep parity with the .NET SDK: when adding or changing a public method here, mirror the change there (and vice versa).
