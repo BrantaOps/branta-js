@@ -4,7 +4,7 @@ TypeScript/ESM SDK published as `@branta-ops/branta`. Consumers (wallets, platfo
 
 ## Behavior contract
 
-What `verify` returns and how ERC-681 is parsed: [How verify works](https://developer.branta.pro/setup/send/how-verify-works). Which rails encrypt with what key: [Encryption](https://developer.branta.pro/setup/receive/encryption). Send handling is on [Send](https://developer.branta.pro/setup/send), and the type list on [Destination types](https://developer.branta.pro/destination-types). Do not restate them here. Change the docs first, then the SDK.
+What `verify` returns and how ERC-681 is parsed: [Status rules](https://developer.branta.pro/setup/send/status-rules). Which rails encrypt with what key: [Encryption](https://developer.branta.pro/setup/receive/encryption). Send handling is on [Send](https://developer.branta.pro/setup/send), and the type list on [Destination types](https://developer.branta.pro/destination-types). Do not restate them here. Change the docs first, then the SDK.
 
 Invariants that break silently. Check them before you change `verify` or `addPayment`:
 
