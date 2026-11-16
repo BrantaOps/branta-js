@@ -11,7 +11,6 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - A raw on-chain address (including `tb1` / `bcrt1` / bare `0x`) is `unknown` and does not GET.
 - A swapped address is `tampered`. A status never throws.
 - `uint256` is not bound. The token is `matchedDestinations[].type`, never the URI scheme.
-- `pol:`, `eth:`, `bsc:`, `tron:`, `ton:`, and `sol:` do not verify.
 - A logo-domain mismatch throws. Every other failure is a status.
 - `addPayment` encrypts a copy and leaves the caller's `Payment` unchanged.
 - Keep parity with every 4.x Branta SDK. A public method added or changed here is mirrored in each of them.
