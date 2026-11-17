@@ -9,9 +9,9 @@ What `verify` returns and how ERC-681 is parsed: [Status rules](https://develope
 Invariants that break silently. Check them before you change `verify` or `addPayment`:
 
 - A raw on-chain address (including `tb1` / `bcrt1` / bare `0x`) is `unknown` and does not GET.
-- A swapped address is `tampered`. A status never throws.
-- `uint256` is not bound. The token is `matchedDestinations[].type`, never the URI scheme.
-- A logo-domain mismatch throws. Every other failure is a status.
+- A swapped address is `tampered`. `unknown`, `tampered`, and `incomplete` are returned, never thrown.
+- The token is `matchedDestinations[].type`, never the URI scheme.
+- A logo-domain mismatch throws. Every other lookup failure is a status.
 - `addPayment` encrypts a copy and leaves the caller's `Payment` unchanged.
 - Keep parity with every 4.x Branta SDK. A public method added or changed here is mirrored in each of them.
 
@@ -35,10 +35,9 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - `npm run build` — `tsc` emits ESM to `dist/`.
 - `npm test` — Jest with coverage. Requires `--experimental-vm-modules` (already in the script).
 - `npm run clean` — `rm -rf dist`.
-- Release: `npm login`, `npm version major|minor|patch`, `npm publish`. `prepublishOnly` rebuilds.
+- Release: `npm login`, `npm version major|minor|patch` (bumps `package.json` and creates the `vX.Y.Z` tag locally), `npm publish`, then push the tag with `git push origin vX.Y.Z`. `prepublishOnly` rebuilds.
 
 ## Conventions
 - ESM-only (`"type": "module"` in `package.json`). Local imports must use `.js` extensions even from `.ts` files; Jest's `moduleNameMapper` strips them at test time.
 - Public API is whatever `src/index.ts` exports. Do not add `BrantaClient`, `QRParser`, AES classes, `GuidSecretGenerator`, `QRParseException`, or `IncompleteError` to that list.
-- Public names: `BrantaServiceOptions` is the constructor argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). `BrantaApiOptions` is per-call overrides. `BrantaEnvironment`.
-- `BrantaService` takes one `BrantaServiceOptions` argument. Every public method accepts optional per-call `BrantaApiOptions`; respect that pattern when adding new methods.
+- `BrantaService` takes one `BrantaServiceOptions` argument (`environment`, `apiKey`, `hmacSecret`, `crypto`, `fetchImpl`). `BrantaApiOptions` holds per-call overrides, and every public method accepts it as an optional argument; respect that pattern when adding new methods. `BrantaEnvironment` selects the environment.
