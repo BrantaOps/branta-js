@@ -4,7 +4,9 @@ import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
 import { BrantaPaymentException } from '../../src/exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../../src/exceptions/incompleteError.js';
+import { VerifyStatus } from '../../src/models/verifyResult.js';
 import { BrantaClient, HTTP_TIMEOUT_MS } from '../../src/services/brantaClient.js';
+import { BrantaService } from '../../src/services/brantaService.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
 const SameOrigin = 'http://localhost:3000';
@@ -168,6 +170,56 @@ describe('BrantaClient.getPayments HTTP errors', () => {
     await expect(client.getPayments('value', undefined, controller.signal)).rejects.toMatchObject({
       name: 'AbortError',
     });
+  });
+});
+
+const fetchReturningText = (text: string): typeof fetch =>
+  jest.fn(async () => ({
+    ok: true,
+    status: 200,
+    text: async () => text,
+  })) as unknown as typeof fetch;
+
+describe('BrantaClient.getPayments malformed body', () => {
+  test.each(['not json', '<html>502 Bad Gateway</html>', '[{"a":'])(
+    'a body that is not JSON throws IncompleteError: %s',
+    async (text) => {
+      const client = new BrantaClient(options, fetchReturningText(text));
+
+      await expect(client.getPayments('value')).rejects.toBeInstanceOf(IncompleteError);
+    },
+  );
+
+  test('a row that cannot be read throws IncompleteError', async () => {
+    const client = new BrantaClient(options, fetchReturningText('[null]'));
+
+    await expect(client.getPayments('value')).rejects.toBeInstanceOf(IncompleteError);
+  });
+
+  test.each(['{}', 'null', '"text"', '42'])('valid JSON that is not a list is an empty result: %s', async (text) => {
+    const client = new BrantaClient(options, fetchReturningText(text));
+
+    await expect(client.getPayments('value')).resolves.toEqual([]);
+  });
+
+  test('a logo on the wrong origin still throws, not incomplete', async () => {
+    const client = clientWithResponse([{ destinations, platform_logo_url: `${OtherOrigin}/logo.png` }]);
+
+    await expect(client.getPayments('value')).rejects.toThrow(BrantaPaymentException);
+  });
+
+  test('verify returns incomplete with a verifyUrl, and does not throw', async () => {
+    const service = new BrantaService({
+      environment: BrantaEnvironment.Localhost,
+      fetchImpl: fetchReturningText('<html>'),
+    });
+
+    const result = await service.verify(
+      'bitcoin:bc1qgw3dzmhnyvcswc9r0v0z0ajtp8ulm4nuyeahwr?branta_id=abc&branta_secret=def',
+    );
+
+    expect(result.status).toBe(VerifyStatus.Incomplete);
+    expect(result.verifyUrl).toBe(`${SameOrigin}/v2/verify/abc`);
   });
 });
 

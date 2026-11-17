@@ -68,9 +68,15 @@ export class BrantaClient implements IBrantaClient {
     const text = await response.text();
     if (text.length === 0) return [];
 
-    const parsed = JSON.parse(text) as unknown;
-    const rawList = Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [];
-    const payments = rawList.map(paymentFromApi);
+    let payments: Payment[];
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      const rawList = Array.isArray(parsed) ? (parsed as Record<string, unknown>[]) : [];
+      payments = rawList.map(paymentFromApi);
+    } catch {
+      // Not JSON, or a row that cannot be read. The lookup did not finish.
+      throw new IncompleteError('Malformed response body');
+    }
 
     this.verifyLogoUrls(baseUrl, payments);
 
