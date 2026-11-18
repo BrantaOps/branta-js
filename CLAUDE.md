@@ -1,6 +1,6 @@
 # Branta JS SDK
 
-TypeScript/ESM SDK published as `@branta-ops/branta`. Consumers (wallets, platforms, parent platforms) call `BrantaService` to look up or post payments to Branta's V2 API. `README.md` is the install, constructor, samples, and crypto guide.
+TypeScript/ESM SDK published as `@branta-ops/branta`. Consumers (wallets, platforms, parent platforms) call `BrantaService` to look up or post payments to Branta. `README.md` is the install, constructor, samples, and crypto guide.
 
 ## Behavior contract
 
