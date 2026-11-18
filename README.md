@@ -35,7 +35,7 @@ switch (result.status) {
     // The destination was altered. Warn. Do not show a verified card.
     break;
   case "incomplete":
-    // 5xx, 429, no network, or the 30s timeout. Tell the user. Do not block send.
+    // Branta could not complete the check. Tell the user. Do not block send.
     break;
 }
 ```
