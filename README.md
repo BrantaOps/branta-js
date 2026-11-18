@@ -116,4 +116,4 @@ const service = new BrantaService({
 });
 ```
 
-[Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+[Changelog](CHANGELOG.md)
