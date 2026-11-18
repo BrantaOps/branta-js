@@ -12,7 +12,7 @@ npm i @branta-ops/branta
 
 ## Send
 
-Pass the scanned QR or pasted text through unchanged. Use `BrantaEnvironment.Staging` until you go live.
+Pass the scanned QR or pasted text through unchanged.
 
 ```ts
 import { BrantaEnvironment, BrantaService } from "@branta-ops/branta";
