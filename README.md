@@ -2,7 +2,7 @@
 
 JavaScript SDK for [Branta](https://developer.branta.pro). ESM only.
 
-`verify()` on send. `addPayment()` on receive. Parent platforms are in the [developer docs](https://developer.branta.pro).
+Status handling and parent platforms are in the [developer docs](https://developer.branta.pro).
 
 ## Install
 
@@ -40,9 +40,7 @@ switch (result.status) {
 }
 ```
 
-A unified QR can bind more than one entry in `matchedDestinations`. Honor each `type`. The asset is that `type`. Every EVM stablecoin uses the `ethereum:` scheme.
-
-A Bitcoin or EVM stablecoin lookup needs `branta_id` and `branta_secret` in the URI. bolt11, Ark, and silent payments resolve from the value. A bare address is `unknown`. The full rules are on [Status rules](https://developer.branta.pro/setup/send/status-rules), and supported chains and contracts are on [Destination types](https://developer.branta.pro/destination-types).
+Rules for each status: [Status rules](https://developer.branta.pro/setup/send/status-rules). Supported types: [Destination types](https://developer.branta.pro/destination-types).
 
 A missing crypto implementation throws `crypto_unavailable`.
 
@@ -71,19 +69,11 @@ const payment = new PaymentBuilder()
 
 const { payment: created, secret, verifyUrl } = await service.addPayment(payment);
 const brantaId = created.destinations[0].value;
+// Store secret with the invoice. Put branta_id and branta_secret on the QR.
+// branta_id is brantaId, URL-encoded. Link the sender to verifyUrl.
 ```
 
-`branta_id` is that ciphertext, URL-encoded. `branta_secret` is `secret`. Link the sender to `verifyUrl`.
-
-```
-bitcoin:<address>?branta_id=<url-encoded branta_id>&branta_secret=<secret>
-```
-
-A stablecoin destination is the deposit address plus its type, for example `DestinationType.UsdcBase`. The invoice is an ERC-681 transfer with the same two params. Chain ids and contracts are on [Destination types](https://developer.branta.pro/destination-types).
-
-```
-ethereum:<token-contract>@<chain-id>/transfer?address=<deposit>&uint256=<base-units>&branta_id=<url-encoded branta_id>&branta_secret=<secret>
-```
+`addPayment` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
 
 ## Crypto
 
