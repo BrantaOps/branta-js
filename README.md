@@ -48,7 +48,7 @@ A missing crypto implementation throws `crypto_unavailable`.
 
 ## Receive
 
-Hold the API key server-side. `addPayment` encrypts a copy and leaves the caller's `Payment` unchanged.
+Hold the API key server-side.
 
 ```ts
 import {
