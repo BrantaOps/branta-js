@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Documentation
+- `hmacSecret` is documented. It signs `addPayment` for platforms with Require HMAC on. The README links to the HMAC signing docs.
+
 ### Fixed
 - A malformed GET body is `incomplete`. A response that is not JSON, or a row that cannot be read, used to throw out of `verify()`. It now returns `incomplete` with a `verifyUrl`.
 
