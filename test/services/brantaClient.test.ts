@@ -1,4 +1,5 @@
 import { describe, expect, jest, test } from '@jest/globals';
+import { readFileSync } from 'node:fs';
 
 import { BrantaApiOptions } from '../../src/classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../../src/enums/brantaEnvironment.js';
@@ -7,6 +8,7 @@ import { IncompleteError } from '../../src/exceptions/incompleteError.js';
 import { VerifyStatus } from '../../src/models/verifyResult.js';
 import { BrantaClient, HTTP_TIMEOUT_MS } from '../../src/services/brantaClient.js';
 import { BrantaService } from '../../src/services/brantaService.js';
+import { SDK_VERSION } from '../../src/services/sdkVersion.js';
 
 // Matches BrantaEnvironment.Localhost's mapped URL.
 const SameOrigin = 'http://localhost:3000';
@@ -257,5 +259,61 @@ describe('BrantaClient.postPayment HTTP errors', () => {
     const client = new BrantaClient(options, fakeFetch, undefined, 20);
 
     await expect(client.postPayment(payment)).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('X-Branta-SDK header', () => {
+  const payment = { destinations: [{ value: 'test-destination' }] };
+  const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string };
+
+  const capturingFetch = (): { fetchImpl: typeof fetch; calls: Array<{ url: string; init: RequestInit }> } => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = jest.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return { ok: true, status: 200, text: async () => '[]' };
+    }) as unknown as typeof fetch;
+    return { fetchImpl, calls };
+  };
+
+  const headerNames = (init: RequestInit): string[] => Object.keys(init.headers as Record<string, string>).map((h) => h.toLowerCase());
+
+  test('SDK_VERSION matches the package.json version', () => {
+    expect(SDK_VERSION).toBe(manifest.version);
+    expect(SDK_VERSION).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  test('POST carries js/<manifest version>', async () => {
+    const { fetchImpl, calls } = capturingFetch();
+    await new BrantaClient(options, fetchImpl).postPayment(payment);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.init.method).toBe('POST');
+    expect((calls[0]!.init.headers as Record<string, string>)['X-Branta-SDK']).toBe(`js/${manifest.version}`);
+  });
+
+  test('POST header is not part of the body or the HMAC input', async () => {
+    const withHmac = { ...options, hmacSecret: 'secret' };
+    const { fetchImpl, calls } = capturingFetch();
+    await new BrantaClient(withHmac, fetchImpl).postPayment(payment);
+
+    expect(String(calls[0]!.init.body)).not.toContain('X-Branta-SDK');
+    expect(String(calls[0]!.init.body)).not.toContain('js/');
+    expect(headerNames(calls[0]!.init)).toContain('x-hmac-signature');
+  });
+
+  test('GET lookups do not carry it', async () => {
+    const { fetchImpl, calls } = capturingFetch();
+    await new BrantaClient(options, fetchImpl).getPayments('value');
+
+    expect(calls[0]!.init.method).toBe('GET');
+    expect(headerNames(calls[0]!.init)).not.toContain('x-branta-sdk');
+  });
+
+  test('api-key health-check GET does not carry it', async () => {
+    const { fetchImpl, calls } = capturingFetch();
+    await new BrantaClient(options, fetchImpl).isApiKeyValid();
+
+    expect(calls[0]!.init.method).toBe('GET');
+    expect(headerNames(calls[0]!.init)).not.toContain('x-branta-sdk');
   });
 });

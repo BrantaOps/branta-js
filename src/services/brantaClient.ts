@@ -5,6 +5,7 @@ import { IncompleteError } from '../exceptions/incompleteError.js';
 import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtensions.js';
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
+import { SDK_HEADER_VALUE } from './sdkVersion.js';
 import { paymentFromApi, paymentToApi } from './serialization.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
@@ -87,6 +88,7 @@ export class BrantaClient implements IBrantaClient {
     const baseUrl = this.resolveBaseUrl(options);
     const headers = this.buildHeaders(options, true);
     headers['Content-Type'] = 'application/json';
+    headers['X-Branta-SDK'] = SDK_HEADER_VALUE;
 
     const json = JSON.stringify(paymentToApi(payment));
 
