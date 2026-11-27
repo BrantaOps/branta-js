@@ -1,9 +1,9 @@
-import { DestinationType, evmTokenType } from '../enums/destinationType.js';
+import { DestinationType, evmTokenType, solanaTokenType } from '../enums/destinationType.js';
 import { getDerivedKeyType, isArk, isBolt11, isSilentPayment } from '../extensions/brantaExtensions.js';
 
 export interface QrDestination {
   value: string;
-  /** Rail this value belongs to. Set for bitcoin and ERC-681. */
+  /** Rail this value belongs to. Set for bitcoin, ERC-681, and Solana Pay. */
   type?: DestinationType;
   /** Visible address that participates in the secret-key swap check. */
   secretKey?: boolean;
@@ -81,6 +81,22 @@ const parseEip681 = (uri: URL): { type: DestinationType; address: string } | und
   return { type, address };
 };
 
+const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/**
+ * Solana Pay transfer. `spl-token` selects one destination type, and a missing or unlisted mint is not bound.
+ * The recipient is the base58 path, case-sensitive. A URL there is a transaction request, which is not bound.
+ */
+const parseSolanaPay = (uri: URL): { type: DestinationType; address: string } | undefined => {
+  const address = uri.pathname.replace(/^\//, '');
+  if (!SOLANA_ADDRESS.test(address)) return undefined;
+  const mint = parseQueryString(uri.search).get('spl-token');
+  if (mint === undefined) return undefined;
+  const type = solanaTokenType(mint);
+  if (type === undefined) return undefined;
+  return { type, address };
+};
+
 const parseQueryString = (query: string): Map<string, string> => {
   const result = new Map<string, string>();
   const trimmed = query.replace(/^\?/, '');
@@ -109,6 +125,7 @@ export class QRParser {
   /**
    * Destination types this scan may decrypt.
    * ERC-681 sets one type from the chain id and token contract.
+   * Solana Pay sets one type from the `spl-token` mint.
    * Bitcoin sets `bitcoin_address`.
    */
   expectedSecretKeyTypes?: readonly DestinationType[];
@@ -127,6 +144,20 @@ export class QRParser {
     const scheme = uri.protocol.replace(/:$/, '').toLowerCase();
     if (scheme === 'ethereum') {
       const transfer = parseEip681(uri);
+      if (transfer !== undefined) {
+        this.destinations.push({ value: transfer.address, type: transfer.type, secretKey: true });
+        this.expectedSecretKeyTypes = [transfer.type];
+        const queryParams = parseQueryString(uri.search);
+        this.onChainEncryptionText = queryParams.get('branta_id');
+        this.onChainEncryptionSecret = queryParams.get('branta_secret');
+      } else {
+        this.destinations.push({ value: text });
+      }
+      return;
+    }
+
+    if (scheme === 'solana') {
+      const transfer = parseSolanaPay(uri);
       if (transfer !== undefined) {
         this.destinations.push({ value: transfer.address, type: transfer.type, secretKey: true });
         this.expectedSecretKeyTypes = [transfer.type];

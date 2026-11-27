@@ -49,16 +49,35 @@ export const evmTokenType = (chainId: number, contract: string): DestinationType
 };
 
 /**
+ * Solana Pay `solana:<recipient>?spl-token=<mint>` rails.
+ * The mint selects one destination type. Mints are base58, so they are case-sensitive.
+ */
+export const SOLANA_TOKEN_RAILS: readonly {
+  mint: string;
+  type: DestinationType;
+}[] = [
+  { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', type: DestinationType.UsdcSolana },
+  { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', type: DestinationType.UsdtSolana },
+];
+
+export const solanaTokenType = (mint: string): DestinationType | undefined =>
+  SOLANA_TOKEN_RAILS.find((rail) => rail.mint === mint)?.type;
+
+const SOLANA_DESTINATION_TYPES: ReadonlySet<DestinationType> = new Set(SOLANA_TOKEN_RAILS.map((rail) => rail.type));
+
+/** Solana addresses are case-sensitive base58. */
+export const isSolanaType = (type: DestinationType): boolean => SOLANA_DESTINATION_TYPES.has(type);
+
+/**
  * Address rails `addPayment` encrypts with one UUID.
- * Tron, TON, and Solana stay here so POST still works. They have no verify URI.
+ * Tron and TON stay here so POST still works. They have no verify URI.
  */
 const UUID_SECRET_DESTINATION_TYPES: ReadonlySet<DestinationType> = new Set([
   DestinationType.BitcoinAddress,
   ...EVM_TOKEN_RAILS.map((rail) => rail.type),
+  ...SOLANA_TOKEN_RAILS.map((rail) => rail.type),
   DestinationType.UsdtTron,
   DestinationType.UsdtTon,
-  DestinationType.UsdtSolana,
-  DestinationType.UsdcSolana,
 ]);
 
 export const isSecretKeyAddressType = (type: DestinationType): boolean =>

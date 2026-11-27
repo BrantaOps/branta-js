@@ -95,7 +95,16 @@ const EncryptedUsdtTronAddress = 'encrypted-usdt-tron-address';
 const UsdtTonAddress = 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by';
 const EncryptedUsdtTonAddress = 'encrypted-usdt-ton-address';
 
-const UsdtSolanaAddress = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+const UsdtSolanaAddress = 'DcMXDhhFJnoutz8oisA9XKUZRAarDVDqtpGjAcjxcQYL';
+const SolanaUsdtMint = 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB';
+const SolanaUsdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const SwappedSolanaAddress = 'H7yyW3Sf7DMRwpovc3DaAsJrkrZ7qxthwdxi45V1EgvA';
+const solanaPay = (address: string, mint: string | undefined, brantaId: string, secret: string, amount = '50') =>
+  `solana:${address}?${mint === undefined ? '' : `spl-token=${mint}&`}amount=${amount}&branta_id=${encodeURIComponent(brantaId)}&branta_secret=${encodeURIComponent(secret)}`;
+const brantaUsdtSolanaLookup = (address = UsdtSolanaAddress, secret = Secret) =>
+  solanaPay(address, SolanaUsdtMint, EncryptedUsdtSolanaAddress, secret);
+const brantaUsdcSolanaLookup = (address = UsdcSolanaAddress, secret = Secret) =>
+  solanaPay(address, SolanaUsdcMint, EncryptedUsdcSolanaAddress, secret);
 const EncryptedUsdtSolanaAddress = 'encrypted-usdt-solana-address';
 const UsdcSolanaAddress = '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf';
 const EncryptedUsdcSolanaAddress = 'encrypted-usdc-solana-address';
@@ -171,6 +180,8 @@ const makeAesMock = (Bolt11Hash: string, ArkHash: string): AesMock => {
     if (encryptedValue === EncryptedUsdtBaseAddress && secret === Secret) return UsdtBaseAddress;
     if (encryptedValue === EncryptedUsdcArbitrumAddress && secret === Secret) return UsdcArbitrumAddress;
     if (encryptedValue === EncryptedUsdtArbitrumAddress && secret === Secret) return UsdtArbitrumAddress;
+    if (encryptedValue === EncryptedUsdtSolanaAddress && secret === Secret) return UsdtSolanaAddress;
+    if (encryptedValue === EncryptedUsdcSolanaAddress && secret === Secret) return UsdcSolanaAddress;
     if (encryptedValue === EncryptedBolt11 && secret === Bolt11Hash) return Bolt11Invoice;
     if (encryptedValue === EncryptedArkAddress && secret === ArkHash) return ArkAddress;
     return '';
@@ -255,6 +266,18 @@ const encryptedUsdcArbitrumPayment = (): Payment =>
 
 const encryptedUsdtArbitrumPayment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedUsdtArbitrumAddress, DestinationType.UsdtArbitrum).build();
+
+const encryptedUsdtSolanaPayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdtSolanaAddress, DestinationType.UsdtSolana).build();
+
+const encryptedUsdcSolanaPayment = (): Payment =>
+  new PaymentBuilder().addDestination(EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana).build();
+
+const encryptedUsdtAndUsdcSolanaPayment = (): Payment =>
+  new PaymentBuilder()
+    .addDestination(EncryptedUsdtSolanaAddress, DestinationType.UsdtSolana)
+    .addDestination(EncryptedUsdcSolanaAddress, DestinationType.UsdcSolana)
+    .build();
 
 const encryptedBolt11Payment = (): Payment =>
   new PaymentBuilder().addDestination(EncryptedBolt11, DestinationType.Bolt11).build();
@@ -619,6 +642,104 @@ describe('BrantaService', () => {
       expectUnknown(await service.verify(wrongChain));
       expectUnknown(await service.verify(unknownContract));
       expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test.each([
+      [DestinationType.UsdtSolana, brantaUsdtSolanaLookup, EncryptedUsdtSolanaAddress, encryptedUsdtSolanaPayment, UsdtSolanaAddress],
+      [DestinationType.UsdcSolana, brantaUsdcSolanaLookup, EncryptedUsdcSolanaAddress, encryptedUsdcSolanaPayment, UsdcSolanaAddress],
+    ] as const)('verify_%s_solanaPayUri_returnsMatch', async (type, lookup, encrypted, payment, address) => {
+      clientMock.getPayments.mockImplementation(async (id: string) => {
+        if (id === encrypted) return [payment()];
+        return [];
+      });
+
+      const { matchedDestinations } = expectMatch(await service.verify(lookup()));
+      expect(matchedDestinations).toEqual([expect.objectContaining({ value: address, type, isEncrypted: false })]);
+    });
+
+    test('verify_solanaPayUri_amountIsNotBound', async () => {
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdtSolanaAddress ? [encryptedUsdtSolanaPayment()] : [],
+      );
+
+      const uri = solanaPay(UsdtSolanaAddress, SolanaUsdtMint, EncryptedUsdtSolanaAddress, Secret, '999999');
+      expectMatch(await service.verify(uri));
+    });
+
+    test('verify_solanaPayUri_swappedRecipient_isTampered', async () => {
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdtSolanaAddress ? [encryptedUsdtSolanaPayment()] : [],
+      );
+
+      expectTampered(await service.verify(brantaUsdtSolanaLookup(SwappedSolanaAddress)));
+    });
+
+    test('verify_solanaPayUri_recipientDifferingOnlyByCase_isTampered', async () => {
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdtSolanaAddress ? [encryptedUsdtSolanaPayment()] : [],
+      );
+
+      expectTampered(await service.verify(brantaUsdtSolanaLookup(`d${UsdtSolanaAddress.slice(1)}`)));
+    });
+
+    test('verify_solanaPayUri_recipientStartingWithBech32Prefix_isStillCaseSensitive', async () => {
+      const recipient = 'bc1Q7xqzJ8nVdh2YtqkRw3PfLmTs6BaUe9GcXz';
+      aesMock.decrypt.mockImplementation(async () => recipient);
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdtSolanaAddress ? [encryptedUsdtSolanaPayment()] : [],
+      );
+
+      expectMatch(await service.verify(brantaUsdtSolanaLookup(recipient)));
+      expectTampered(await service.verify(brantaUsdtSolanaLookup(recipient.replace('Q', 'q'))));
+    });
+
+    test('verify_usdcMintUri_againstUsdtSolanaOnlyPayment_returnsUnknown', async () => {
+      const payment = encryptedUsdtSolanaPayment();
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdtSolanaAddress ? [payment] : [],
+      );
+
+      const uri = solanaPay(UsdtSolanaAddress, SolanaUsdcMint, EncryptedUsdtSolanaAddress, Secret);
+      expectUnknown(await service.verify(uri));
+      expect(payment.destinations[0]!.value).toBe(EncryptedUsdtSolanaAddress);
+      expect(aesMock.decrypt).not.toHaveBeenCalled();
+    });
+
+    test('verify_solanaPayUri_leavesSiblingSolanaRailEncrypted', async () => {
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdcSolanaAddress ? [encryptedUsdtAndUsdcSolanaPayment()] : [],
+      );
+
+      const { payments, matchedDestinations } = expectMatch(await service.verify(brantaUsdcSolanaLookup()));
+      expect(matchedDestinations).toHaveLength(1);
+      expect(matchedDestinations[0]!.type).toBe(DestinationType.UsdcSolana);
+      expect(payments[0]!.destinations[0]!.value).toBe(EncryptedUsdtSolanaAddress);
+      expect(payments[0]!.destinations[0]!.isEncrypted).not.toBe(false);
+    });
+
+    test.each([
+      ['no spl-token (native SOL)', solanaPay(UsdtSolanaAddress, undefined, EncryptedUsdtSolanaAddress, Secret)],
+      ['unlisted mint', solanaPay(UsdtSolanaAddress, UsdtSolanaAddress, EncryptedUsdtSolanaAddress, Secret)],
+      ['lowercased mint', solanaPay(UsdtSolanaAddress, SolanaUsdtMint.toLowerCase(), EncryptedUsdtSolanaAddress, Secret)],
+      ['transaction request URL', `solana:https://example.com/pay?spl-token=${SolanaUsdtMint}&branta_id=abc&branta_secret=1234`],
+      ['recipient is not base58', `solana:not-a-solana-address?spl-token=${SolanaUsdtMint}&branta_id=abc&branta_secret=1234`],
+    ])('verify_solanaPayUri_%s_returnsUnknownWithoutGet', async (_name, uri) => {
+      expectUnknown(await service.verify(uri));
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('verify_solanaPayUri_withoutBrantaParams_returnsUnknownWithoutGet', async () => {
+      expectUnknown(await service.verify(`solana:${UsdtSolanaAddress}?spl-token=${SolanaUsdtMint}&amount=1`));
+      expect(clientMock.getPayments).not.toHaveBeenCalled();
+    });
+
+    test('verify_solanaPayUri_schemeAndKeysAreCaseInsensitive', async () => {
+      clientMock.getPayments.mockImplementation(async (id: string) =>
+        id === EncryptedUsdtSolanaAddress ? [encryptedUsdtSolanaPayment()] : [],
+      );
+
+      const uri = `SOLANA:${UsdtSolanaAddress}?SPL-TOKEN=${SolanaUsdtMint}&Branta_Id=${encodeURIComponent(EncryptedUsdtSolanaAddress)}&BRANTA_SECRET=${Secret}`;
+      expectMatch(await service.verify(uri));
     });
 
     test.each([
