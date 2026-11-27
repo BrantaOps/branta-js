@@ -12,6 +12,9 @@ export interface Payment {
   platformLogoUrl?: string;
   platformLogoLightUrl?: string;
   parentPlatform?: Platform;
+  /** The payee a shared-key platform tags the payment with. Wins over `childPlatform` when both are set. */
+  brand?: Platform;
+  /** @deprecated Use `brand`. */
   childPlatform?: Platform;
   isMetadataDecrypted?: boolean;
 }

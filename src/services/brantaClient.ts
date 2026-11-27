@@ -6,7 +6,7 @@ import { getApiKey, getBaseUrl, getHmacSecret } from '../extensions/brantaExtens
 import { IBrantaClient } from '../interfaces/iBrantaClient.js';
 import { Payment } from '../models/payment.js';
 import { SDK_HEADER_VALUE } from './sdkVersion.js';
-import { paymentFromApi, paymentToApi } from './serialization.js';
+import { effectiveBrand, paymentFromApi, paymentToApi } from './serialization.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 
@@ -222,8 +222,9 @@ export class BrantaClient implements IBrantaClient {
       check(payment.platformLogoLightUrl, 'platformLogoLightUrl');
       check(payment.parentPlatform?.logoUrl, 'parentPlatform.logoUrl');
       check(payment.parentPlatform?.logoLightUrl, 'parentPlatform.logoLightUrl');
-      check(payment.childPlatform?.logoUrl, 'childPlatform.logoUrl');
-      check(payment.childPlatform?.logoLightUrl, 'childPlatform.logoLightUrl');
+      const brand = effectiveBrand(payment);
+      check(brand?.logoUrl, 'brand.logoUrl');
+      check(brand?.logoLightUrl, 'brand.logoLightUrl');
     }
   }
 

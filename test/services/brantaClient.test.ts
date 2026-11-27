@@ -69,18 +69,24 @@ describe('BrantaClient.getPayments logo url validation', () => {
     await expect(client.getPayments('value')).rejects.toThrow(/parentPlatform\.logoLightUrl/);
   });
 
-  test('catches mismatched childPlatform.logoUrl', async () => {
+  test('catches mismatched brand.logoUrl', async () => {
     const client = clientWithResponse([{ destinations, child_platform: { logo_url: `${OtherOrigin}/logo.png` } }]);
 
-    await expect(client.getPayments('value')).rejects.toThrow(/childPlatform\.logoUrl/);
+    await expect(client.getPayments('value')).rejects.toThrow(/brand\.logoUrl/);
   });
 
-  test('catches mismatched childPlatform.logoLightUrl', async () => {
+  test('catches mismatched brand.logoLightUrl', async () => {
     const client = clientWithResponse([
       { destinations, child_platform: { logo_light_url: `${OtherOrigin}/logo-light.png` } },
     ]);
 
-    await expect(client.getPayments('value')).rejects.toThrow(/childPlatform\.logoLightUrl/);
+    await expect(client.getPayments('value')).rejects.toThrow(/brand\.logoLightUrl/);
+  });
+
+  test('catches mismatched brand.logoUrl from the brand wire field', async () => {
+    const client = clientWithResponse([{ destinations, brand: { logo_url: `${OtherOrigin}/logo.png` } }]);
+
+    await expect(client.getPayments('value')).rejects.toThrow(/brand\.logoUrl/);
   });
 
   test('does not throw when all logo fields are same-origin or absent', async () => {
@@ -315,5 +321,31 @@ describe('X-Branta-SDK header', () => {
 
     expect(calls[0]!.init.method).toBe('GET');
     expect(headerNames(calls[0]!.init)).not.toContain('x-branta-sdk');
+  });
+});
+
+describe('POST body brand', () => {
+  const capture = (): { fetchImpl: typeof fetch; bodies: Record<string, unknown>[] } => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchImpl = jest.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return { ok: true, status: 200, text: async () => '[]' };
+    }) as unknown as typeof fetch;
+    return { fetchImpl, bodies };
+  };
+
+  test('sends brand and never child_platform, for both the new and deprecated fields', async () => {
+    const { fetchImpl, bodies } = capture();
+    const client = new BrantaClient(options, fetchImpl);
+    const destinations = [{ value: 'test-destination' }];
+
+    await client.postPayment({ destinations, brand: { name: 'Acme' } });
+    await client.postPayment({ destinations, childPlatform: { name: 'Acme' } });
+
+    expect(bodies).toHaveLength(2);
+    for (const body of bodies) {
+      expect(body['brand']).toEqual({ name: 'Acme' });
+      expect(body).not.toHaveProperty('child_platform');
+    }
   });
 });

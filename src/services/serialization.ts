@@ -1,6 +1,7 @@
 import { DestinationType } from '../enums/destinationType.js';
 import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
+import { Platform } from '../models/platform.js';
 
 const destinationTypes = new Set<string>(Object.values(DestinationType));
 
@@ -37,6 +38,9 @@ export const destinationFromApi = (raw: Record<string, unknown>): Destination =>
   return destination;
 };
 
+/** `brand` if set, otherwise the deprecated `childPlatform`. */
+export const effectiveBrand = (payment: Payment): Platform | undefined => payment.brand ?? payment.childPlatform;
+
 export const paymentToApi = (payment: Payment): Record<string, unknown> => {
   const result: Record<string, unknown> = {
     destinations: payment.destinations.map(destinationToApi),
@@ -47,12 +51,13 @@ export const paymentToApi = (payment: Payment): Record<string, unknown> => {
   if (payment.platform !== undefined) result['platform'] = payment.platform;
   if (payment.platformLogoUrl !== undefined) result['platform_logo_url'] = payment.platformLogoUrl;
   if (payment.platformLogoLightUrl !== undefined) result['platform_logo_light_url'] = payment.platformLogoLightUrl;
-  if (payment.childPlatform !== undefined) {
-    const cp: Record<string, unknown> = {};
-    if (payment.childPlatform.name !== undefined) cp['name'] = payment.childPlatform.name;
-    if (payment.childPlatform.logoUrl !== undefined) cp['logo_url'] = payment.childPlatform.logoUrl;
-    if (payment.childPlatform.logoLightUrl !== undefined) cp['logo_light_url'] = payment.childPlatform.logoLightUrl;
-    result['child_platform'] = cp;
+  const brand = effectiveBrand(payment);
+  if (brand !== undefined) {
+    const b: Record<string, unknown> = {};
+    if (brand.name !== undefined) b['name'] = brand.name;
+    if (brand.logoUrl !== undefined) b['logo_url'] = brand.logoUrl;
+    if (brand.logoLightUrl !== undefined) b['logo_light_url'] = brand.logoLightUrl;
+    result['brand'] = b;
   }
   return result;
 };
@@ -82,15 +87,18 @@ export const paymentFromApi = (raw: Record<string, unknown>): Payment => {
     }
     payment.parentPlatform = parentPlatform;
   }
-  if (raw['child_platform'] !== undefined && raw['child_platform'] !== null) {
-    const cp = raw['child_platform'] as Record<string, unknown>;
-    const childPlatform: Payment['childPlatform'] = {};
-    if (cp['name'] !== undefined && cp['name'] !== null) childPlatform.name = String(cp['name']);
-    if (cp['logo_url'] !== undefined && cp['logo_url'] !== null) childPlatform.logoUrl = String(cp['logo_url']);
-    if (cp['logo_light_url'] !== undefined && cp['logo_light_url'] !== null) {
-      childPlatform.logoLightUrl = String(cp['logo_light_url']);
+  // `brand` wins over the deprecated `child_platform` alias. Mirror it into the deprecated field.
+  const rawBrand = raw['brand'] ?? raw['child_platform'];
+  if (rawBrand !== undefined && rawBrand !== null) {
+    const bp = rawBrand as Record<string, unknown>;
+    const brand: Platform = {};
+    if (bp['name'] !== undefined && bp['name'] !== null) brand.name = String(bp['name']);
+    if (bp['logo_url'] !== undefined && bp['logo_url'] !== null) brand.logoUrl = String(bp['logo_url']);
+    if (bp['logo_light_url'] !== undefined && bp['logo_light_url'] !== null) {
+      brand.logoLightUrl = String(bp['logo_light_url']);
     }
-    payment.childPlatform = childPlatform;
+    payment.brand = brand;
+    payment.childPlatform = { ...brand };
   }
   return payment;
 };

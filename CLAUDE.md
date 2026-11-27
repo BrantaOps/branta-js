@@ -23,6 +23,7 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - `Destination.id` is sent as `zk_id`. `zk: true` is always sent.
 - `verify` parses first. Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
 - `DestinationType` is only what `addPayment` accepts. It also includes `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana`. They can be posted but no URI verifies them, and they are not on the public Destination types page. There is no `usdc_ton`.
+- `setBrand` is the builder method and `brand` is the wire field. `setChildPlatform` and `Payment.childPlatform` stay only as deprecated aliases: `setChildPlatform` delegates to `setBrand`, and an effective brand is `brand` ?? `childPlatform`. Never send `child_platform`. Parsing accepts either (`brand` wins) and mirrors the value into `childPlatform`.
 - Do not reintroduce `BrantaClientOptions`, `defaultApiKey`, `BrantaServerBaseUrl`, `QRParseException`, `Destination.zkId`, `Payment.btcPayServerPluginVersion`, or a two-argument `BrantaService` constructor.
 
 ## Package layout

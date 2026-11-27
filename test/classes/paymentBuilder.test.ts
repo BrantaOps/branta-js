@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
 import { DestinationType } from '../../src/enums/destinationType.js';
+import { Payment } from '../../src/models/payment.js';
 import { PaymentBuilder } from '../../src/classes/paymentBuilder.js';
 import { destinationFromApi, destinationToApi, paymentFromApi, paymentToApi } from '../../src/services/serialization.js';
 
@@ -123,33 +124,61 @@ describe('PaymentBuilder', () => {
     expect(payment.metadata).toContain('"123"');
   });
 
-  test('setChildPlatform_setsName', () => {
-    const payment = new PaymentBuilder()
-      .addDestination(BitcoinAddress)
-      .setChildPlatform('Acme')
-      .build();
+  test('setBrand_setsName', () => {
+    const payment = new PaymentBuilder().addDestination(BitcoinAddress).setBrand('Acme').build();
 
-    expect(payment.childPlatform!.name).toBe('Acme');
+    expect(payment.brand!.name).toBe('Acme');
   });
 
-  test('setChildPlatform_optionalUrlsUndefinedByDefault', () => {
-    const payment = new PaymentBuilder()
-      .addDestination(BitcoinAddress)
-      .setChildPlatform('Acme')
-      .build();
+  test('setBrand_optionalUrlsUndefinedByDefault', () => {
+    const payment = new PaymentBuilder().addDestination(BitcoinAddress).setBrand('Acme').build();
 
-    expect(payment.childPlatform!.logoUrl).toBeUndefined();
-    expect(payment.childPlatform!.logoLightUrl).toBeUndefined();
+    expect(payment.brand!.logoUrl).toBeUndefined();
+    expect(payment.brand!.logoLightUrl).toBeUndefined();
   });
 
-  test('setChildPlatform_withUrls_setsUrls', () => {
+  test('setBrand_withUrls_setsUrls', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setBrand('Acme', 'https://example.com/logo.png', 'https://example.com/logo-light.png')
+      .build();
+
+    expect(payment.brand!.logoUrl).toBe('https://example.com/logo.png');
+    expect(payment.brand!.logoLightUrl).toBe('https://example.com/logo-light.png');
+  });
+
+  test('setBrand_returnsBuilder', () => {
+    const builder = new PaymentBuilder().addDestination(BitcoinAddress);
+
+    expect(builder.setBrand('Acme')).toBe(builder);
+  });
+
+  test('setBrand_serializesToApiAsBrandOnly', () => {
+    const payment = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setBrand('Acme', 'https://example.com/logo.png')
+      .build();
+
+    const api = paymentToApi(payment);
+    const brand = api['brand'] as Record<string, unknown>;
+
+    expect(brand['name']).toBe('Acme');
+    expect(brand['logo_url']).toBe('https://example.com/logo.png');
+    expect(brand['logo_light_url']).toBeUndefined();
+    expect(api).not.toHaveProperty('child_platform');
+  });
+
+  test('setChildPlatform_deprecatedAlias_writesBrand', () => {
     const payment = new PaymentBuilder()
       .addDestination(BitcoinAddress)
       .setChildPlatform('Acme', 'https://example.com/logo.png', 'https://example.com/logo-light.png')
       .build();
 
-    expect(payment.childPlatform!.logoUrl).toBe('https://example.com/logo.png');
-    expect(payment.childPlatform!.logoLightUrl).toBe('https://example.com/logo-light.png');
+    expect(payment.brand).toEqual({
+      name: 'Acme',
+      logoUrl: 'https://example.com/logo.png',
+      logoLightUrl: 'https://example.com/logo-light.png',
+    });
   });
 
   test('setChildPlatform_returnsBuilder', () => {
@@ -159,27 +188,90 @@ describe('PaymentBuilder', () => {
     expect(result).toBe(builder);
   });
 
-  test('setChildPlatform_serializesToApi', () => {
-    const payment = new PaymentBuilder()
+  test('setChildPlatform_serializesToIdenticalBrandWireBody', () => {
+    const viaBrand = new PaymentBuilder()
+      .addDestination(BitcoinAddress)
+      .setBrand('Acme', 'https://example.com/logo.png')
+      .build();
+    const viaAlias = new PaymentBuilder()
       .addDestination(BitcoinAddress)
       .setChildPlatform('Acme', 'https://example.com/logo.png')
       .build();
+    // Destination ids are random; compare the brand portion of the wire body.
+    const brandOf = (p: typeof viaBrand) => paymentToApi(p)['brand'];
 
-    const api = paymentToApi(payment);
-    const cp = api['child_platform'] as Record<string, unknown>;
-
-    expect(cp['name']).toBe('Acme');
-    expect(cp['logo_url']).toBe('https://example.com/logo.png');
-    expect(cp['logo_light_url']).toBeUndefined();
+    expect(brandOf(viaAlias)).toEqual(brandOf(viaBrand));
+    expect(paymentToApi(viaAlias)).not.toHaveProperty('child_platform');
   });
 
-  test('noChildPlatform_omittedFromApi', () => {
-    const payment = new PaymentBuilder()
-      .addDestination(BitcoinAddress)
-      .build();
+  test('paymentWithOnlyDeprecatedField_serializesAsBrand', () => {
+    const payment: Payment = {
+      destinations: [{ value: BitcoinAddress }],
+      childPlatform: { name: 'Old', logoUrl: 'https://example.com/old.png' },
+    };
 
     const api = paymentToApi(payment);
 
-    expect(api['child_platform']).toBeUndefined();
+    expect(api['brand']).toEqual({ name: 'Old', logo_url: 'https://example.com/old.png' });
+    expect(api).not.toHaveProperty('child_platform');
+  });
+
+  test('paymentWithBothFields_brandWins', () => {
+    const payment: Payment = {
+      destinations: [{ value: BitcoinAddress }],
+      brand: { name: 'New' },
+      childPlatform: { name: 'Old', logoUrl: 'https://example.com/old.png' },
+    };
+
+    const api = paymentToApi(payment);
+
+    expect(api['brand']).toEqual({ name: 'New' });
+    expect(api).not.toHaveProperty('child_platform');
+  });
+
+  test('noBrand_omittedFromApi', () => {
+    const payment = new PaymentBuilder().addDestination(BitcoinAddress).build();
+
+    const api = paymentToApi(payment);
+
+    expect(api['brand']).toBeUndefined();
+    expect(api).not.toHaveProperty('child_platform');
+  });
+
+  test('paymentFromApi_brand_populatesBrandAndMirrorsChildPlatform', () => {
+    const payment = paymentFromApi({
+      destinations: [],
+      brand: { name: 'Acme', logo_url: 'https://example.com/a.png', logo_light_url: 'https://example.com/b.png' },
+    });
+    const expected = { name: 'Acme', logoUrl: 'https://example.com/a.png', logoLightUrl: 'https://example.com/b.png' };
+
+    expect(payment.brand).toEqual(expected);
+    expect(payment.childPlatform).toEqual(expected);
+  });
+
+  test('paymentFromApi_childPlatform_populatesBrandAndMirrorsChildPlatform', () => {
+    const payment = paymentFromApi({ destinations: [], child_platform: { name: 'Old', logo_url: 'https://example.com/o.png' } });
+    const expected = { name: 'Old', logoUrl: 'https://example.com/o.png' };
+
+    expect(payment.brand).toEqual(expected);
+    expect(payment.childPlatform).toEqual(expected);
+  });
+
+  test('paymentFromApi_both_brandWins', () => {
+    const payment = paymentFromApi({
+      destinations: [],
+      brand: { name: 'New' },
+      child_platform: { name: 'Old', logo_url: 'https://example.com/o.png' },
+    });
+
+    expect(payment.brand).toEqual({ name: 'New' });
+    expect(payment.childPlatform).toEqual({ name: 'New' });
+  });
+
+  test('paymentFromApi_neither_leavesBothUndefined', () => {
+    const payment = paymentFromApi({ destinations: [] });
+
+    expect(payment.brand).toBeUndefined();
+    expect(payment.childPlatform).toBeUndefined();
   });
 });
