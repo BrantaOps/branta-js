@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- `usdt_solana` and `usdc_solana` verify. `verify` reads a Solana Pay `solana:<recipient>?spl-token=<mint>&amount=<decimal>&branta_id=<id>&branta_secret=<secret>` transfer URI. The `spl-token` mint selects one destination type, and the recipient is the bound value. The recipient and mint are case-sensitive. A missing `spl-token` (native SOL), an unlisted mint, or a transaction-request URL is `unknown`. `amount` is not part of the match.
 - `POST /v2/payments` now sends an `X-Branta-SDK` header (language and SDK version). GETs are unchanged.
 
 ### Documentation

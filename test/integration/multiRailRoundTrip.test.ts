@@ -33,6 +33,8 @@ type SecretKeyRail = {
   caseFold?: boolean;
   /** Set for EIP-681 EVM rails. Bitcoin leaves it unset. */
   eip681?: { chainId: number; contract: string };
+  /** Set for Solana Pay rails. Base58 is case-sensitive. */
+  solana?: { mint: string };
 };
 
 type DerivedKeyRail = {
@@ -129,6 +131,20 @@ const secretKeyRails: SecretKeyRail[] = [
     caseFold: true,
     eip681: { chainId: 42161, contract: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9' },
   },
+  {
+    kind: 'secret',
+    type: DestinationType.UsdtSolana,
+    address: 'DcMXDhhFJnoutz8oisA9XKUZRAarDVDqtpGjAcjxcQYL',
+    swapped: 'H7yyW3Sf7DMRwpovc3DaAsJrkrZ7qxthwdxi45V1EgvA',
+    solana: { mint: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB' },
+  },
+  {
+    kind: 'secret',
+    type: DestinationType.UsdcSolana,
+    address: 'H7yyW3Sf7DMRwpovc3DaAsJrkrZ7qxthwdxi45V1EgvA',
+    swapped: 'DcMXDhhFJnoutz8oisA9XKUZRAarDVDqtpGjAcjxcQYL',
+    solana: { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+  },
 ];
 
 const derivedKeyRails: DerivedKeyRail[] = [
@@ -150,7 +166,7 @@ const derivedKeyRails: DerivedKeyRail[] = [
 ];
 
 const secretKeyUri = (
-  rail: Pick<SecretKeyRail, 'eip681'>,
+  rail: Pick<SecretKeyRail, 'eip681' | 'solana'>,
   recipient: string,
   encrypted: string,
   secret: string,
@@ -158,12 +174,18 @@ const secretKeyUri = (
   if (rail.eip681 !== undefined) {
     return `ethereum:${rail.eip681.contract}@${rail.eip681.chainId}/transfer?address=${recipient}&uint256=1000000&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
   }
+  if (rail.solana !== undefined) {
+    return `solana:${recipient}?spl-token=${rail.solana.mint}&amount=1&branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
+  }
   return `bitcoin:${recipient}?branta_id=${encodeURIComponent(encrypted)}&branta_secret=${encodeURIComponent(secret)}`;
 };
 
 const uriWithoutBranta = (rail: SecretKeyRail) => {
   if (rail.eip681 !== undefined) {
     return `ethereum:${rail.eip681.contract}@${rail.eip681.chainId}/transfer?address=${rail.address}&uint256=1000000`;
+  }
+  if (rail.solana !== undefined) {
+    return `solana:${rail.address}?spl-token=${rail.solana.mint}&amount=1`;
   }
   return `bitcoin:${rail.address}`;
 };
@@ -223,8 +245,6 @@ describeLiveWrite('Staging multi-rail SDK round-trips', () => {
   test.each([
     { type: DestinationType.UsdtTron, address: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', scheme: 'tron' },
     { type: DestinationType.UsdtTon, address: 'EQDtFpEwcFAEcRe5mLVh2N6C0y-_tur3BYOM93pEZPw390by', scheme: 'ton' },
-    { type: DestinationType.UsdtSolana, address: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', scheme: 'sol' },
-    { type: DestinationType.UsdcSolana, address: '7EqQdEULxWcraVx3mXKFjc84LhCkMGZCkRuDofycyinf', scheme: 'sol' },
   ])(
     'post-only $type: addPayment encrypts and $scheme does not verify',
     async (rail) => {

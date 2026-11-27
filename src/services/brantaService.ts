@@ -3,7 +3,7 @@ import { WEB_CRYPTO_UNAVAILABLE_MESSAGE } from '../classes/aesEncryption.js';
 import { AesEncryptionService } from '../classes/aesEncryptionService.js';
 import { BrantaApiOptions } from '../classes/brantaApiOptions.js';
 import { BrantaEnvironment } from '../enums/brantaEnvironment.js';
-import { DestinationType, isSecretKeyAddressType } from '../enums/destinationType.js';
+import { DestinationType, isSecretKeyAddressType, isSolanaType } from '../enums/destinationType.js';
 import { BrantaPaymentException, BrantaPaymentExceptionReason } from '../exceptions/brantaPaymentException.js';
 import { IncompleteError } from '../exceptions/incompleteError.js';
 import {
@@ -55,7 +55,9 @@ const copyPayment = (payment: Payment): Payment => ({
   childPlatform: payment.childPlatform === undefined ? undefined : { ...payment.childPlatform },
 });
 
-const addressesMatch = (a: string, b: string): boolean => {
+const addressesMatch = (a: string, b: string, caseSensitive = false): boolean => {
+  // Base58 is case-sensitive. A Solana address can start with "bc1", so skip the bech32 and 0x folds.
+  if (caseSensitive) return a === b;
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);
   if (isBech32(a) && isBech32(b)) return a.toLowerCase() === b.toLowerCase();
   if (a.toLowerCase().startsWith('0x') && b.toLowerCase().startsWith('0x')) {
@@ -80,7 +82,7 @@ const uniformOnChainAddress = (parser: QRParser): string | undefined => {
   return first;
 };
 
-/** Types this scan may decrypt. One ERC-681 rail, or bitcoin. */
+/** Types this scan may decrypt. One ERC-681 or Solana Pay rail, or bitcoin. */
 const expectedSecretKeyTypes = (parser: QRParser): ReadonlySet<DestinationType> | undefined => {
   if (parser.expectedSecretKeyTypes === undefined || parser.expectedSecretKeyTypes.length === 0) {
     return undefined;
@@ -295,7 +297,10 @@ export class BrantaService implements IBrantaService {
       }
       decryptedExpectedRail = true;
       // A decrypted value that is not the scanned address stays encrypted.
-      if (expectedOnChainAddress !== undefined && !addressesMatch(decrypted, expectedOnChainAddress)) {
+      if (
+        expectedOnChainAddress !== undefined &&
+        !addressesMatch(decrypted, expectedOnChainAddress, isSolanaType(destination.type))
+      ) {
         continue;
       }
       if (expectedOnChainAddress !== undefined) onChainBound = true;

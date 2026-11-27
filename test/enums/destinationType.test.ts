@@ -3,6 +3,9 @@ import {
   EVM_TOKEN_RAILS,
   evmTokenType,
   isSecretKeyAddressType,
+  isSolanaType,
+  SOLANA_TOKEN_RAILS,
+  solanaTokenType,
 } from '../../src/enums/destinationType.js';
 
 describe('destinationType', () => {
@@ -23,17 +26,27 @@ describe('destinationType', () => {
     expect(Object.values(DestinationType)).not.toContain('usdc_ton');
   });
 
+  test('solanaTokenType_selectsOneRailFromMint', () => {
+    expect(SOLANA_TOKEN_RAILS).toHaveLength(2);
+    expect(solanaTokenType('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')).toBe(DestinationType.UsdcSolana);
+    expect(solanaTokenType('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB')).toBe(DestinationType.UsdtSolana);
+    expect(solanaTokenType('epjfwdd5aufqsseqm2qn1xzybapc8g4wegggkzwytdt1v')).toBeUndefined();
+    expect(solanaTokenType('')).toBeUndefined();
+    expect(isSolanaType(DestinationType.UsdcSolana)).toBe(true);
+    expect(isSolanaType(DestinationType.UsdtSolana)).toBe(true);
+    expect(isSolanaType(DestinationType.UsdtBase)).toBe(false);
+    expect(isSolanaType(DestinationType.BitcoinAddress)).toBe(false);
+  });
+
   test('isSecretKeyAddressType_includesBitcoinEvmAndPostOnlyStables', () => {
     expect(isSecretKeyAddressType(DestinationType.BitcoinAddress)).toBe(true);
     for (const rail of EVM_TOKEN_RAILS) {
       expect(isSecretKeyAddressType(rail.type)).toBe(true);
     }
-    for (const type of [
-      DestinationType.UsdtTron,
-      DestinationType.UsdtTon,
-      DestinationType.UsdtSolana,
-      DestinationType.UsdcSolana,
-    ]) {
+    for (const rail of SOLANA_TOKEN_RAILS) {
+      expect(isSecretKeyAddressType(rail.type)).toBe(true);
+    }
+    for (const type of [DestinationType.UsdtTron, DestinationType.UsdtTon]) {
       expect(isSecretKeyAddressType(type)).toBe(true);
     }
     expect(isSecretKeyAddressType(DestinationType.Bolt11)).toBe(false);

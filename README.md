@@ -73,7 +73,7 @@ const brantaId = created.destinations[0].value;
 // branta_id is brantaId, URL-encoded. Link the sender to verifyUrl.
 ```
 
-`addPayment` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
+`addPayment` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron` and `UsdtTon` also encrypt and post, but no URI verifies them.
 
 ### HMAC signing
 

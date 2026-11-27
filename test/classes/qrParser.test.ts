@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { DestinationType, EVM_TOKEN_RAILS } from '../../src/enums/destinationType.js';
+import { DestinationType, EVM_TOKEN_RAILS, SOLANA_TOKEN_RAILS } from '../../src/enums/destinationType.js';
 import { QRParser } from '../../src/classes/qrParser.js';
 
 describe('QRParser', () => {
@@ -139,6 +139,53 @@ describe('QRParser', () => {
     expect(result.expectedSecretKeyTypes).toEqual([rail.type]);
     expect(result.onChainEncryptionText).toBe('id');
     expect(result.onChainEncryptionSecret).toBe('sec');
+  });
+
+  test.each(SOLANA_TOKEN_RAILS)('qrParser_solanaPay_$type_bindsRecipientAndOneType', (rail) => {
+    const recipient = 'DcMXDhhFJnoutz8oisA9XKUZRAarDVDqtpGjAcjxcQYL';
+    const result = new QRParser(
+      `solana:${recipient}?spl-token=${rail.mint}&amount=50.0&branta_id=abc%2Bdef%3D&branta_secret=sec`,
+    );
+
+    expect(result.destination).toBe(recipient);
+    expect(result.destinationType).toBe(rail.type);
+    expect(result.destinations).toHaveLength(1);
+    expect(result.destinations[0]!.secretKey).toBe(true);
+    expect(result.expectedSecretKeyTypes).toEqual([rail.type]);
+    expect(result.onChainEncryptionText).toBe('abc+def=');
+    expect(result.onChainEncryptionSecret).toBe('sec');
+  });
+
+  test('qrParser_solanaPay_keepsRecipientCase_andFirstRepeatedKeyWins', () => {
+    const recipient = 'DcMXDhhFJnoutz8oisA9XKUZRAarDVDqtpGjAcjxcQYL';
+    const [usdc, usdt] = [SOLANA_TOKEN_RAILS[0]!, SOLANA_TOKEN_RAILS[1]!];
+    const result = new QRParser(
+      `SOLANA:${recipient}?SPL-Token=${usdt.mint}&spl-token=${usdc.mint}&branta_id=id&branta_secret=sec`,
+    );
+
+    expect(result.destination).toBe(recipient);
+    expect(result.destinationType).toBe(usdt.type);
+  });
+
+  test('qrParser_solanaPay_doesNotBindIncompleteForms', () => {
+    const recipient = 'DcMXDhhFJnoutz8oisA9XKUZRAarDVDqtpGjAcjxcQYL';
+    const mint = SOLANA_TOKEN_RAILS[1]!.mint;
+    const forms = [
+      `solana:${recipient}?amount=50.0&branta_id=abc&branta_secret=1234`,
+      `solana:${recipient}?spl-token=${recipient}&branta_id=abc&branta_secret=1234`,
+      `solana:${recipient}?spl-token=${mint.toLowerCase()}&branta_id=abc&branta_secret=1234`,
+      `solana:https://example.com/pay?spl-token=${mint}&branta_id=abc&branta_secret=1234`,
+      `solana:short?spl-token=${mint}&branta_id=abc&branta_secret=1234`,
+      `solana:?spl-token=${mint}&branta_id=abc&branta_secret=1234`,
+      `sol:${recipient}?spl-token=${mint}&branta_id=abc&branta_secret=1234`,
+    ];
+
+    for (const uri of forms) {
+      const result = new QRParser(uri);
+      expect(result.expectedSecretKeyTypes).toBeUndefined();
+      expect(result.onChainEncryptionText).toBeUndefined();
+      expect(result.destinationType).toBeUndefined();
+    }
   });
 
   test('qrParser_eip681_doesNotBindIncompleteForms', () => {

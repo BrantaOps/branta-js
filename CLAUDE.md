@@ -4,7 +4,7 @@ TypeScript/ESM SDK published as `@branta-ops/branta`. Consumers (wallets, platfo
 
 ## Behavior contract
 
-What `verify` returns and how ERC-681 is parsed: [Status rules](https://developer.branta.pro/setup/send/status-rules). Which rails encrypt with what key: [Encryption](https://developer.branta.pro/setup/receive/encryption). Send handling is on [Send](https://developer.branta.pro/setup/send), and the type list on [Destination types](https://developer.branta.pro/destination-types). Do not restate them here. Change the docs first, then the SDK.
+What `verify` returns and how ERC-681 and Solana Pay URIs are parsed: [Status rules](https://developer.branta.pro/setup/send/status-rules). Which rails encrypt with what key: [Encryption](https://developer.branta.pro/setup/receive/encryption). Send handling is on [Send](https://developer.branta.pro/setup/send), and the type list on [Destination types](https://developer.branta.pro/destination-types). Do not restate them here. Change the docs first, then the SDK.
 
 Invariants that break silently. Check them before you change `verify` or `addPayment`:
 
@@ -22,7 +22,7 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - A caller `AbortSignal` cancel is not `incomplete`. A 30s HTTP timeout is.
 - `Destination.id` is sent as `zk_id`. `zk: true` is always sent.
 - `verify` parses first. Multi-value payloads (`branta_id` / `branta_secret`, `lightning=`, `ark=`, `sp=`) go through `QRParser` whether they came from a scan or a paste.
-- `DestinationType` is only what `addPayment` accepts. It also includes `usdt_tron`, `usdt_ton`, `usdt_solana`, and `usdc_solana`. They can be posted but no URI verifies them, and they are not on the public Destination types page. There is no `usdc_ton`.
+- `DestinationType` is only what `addPayment` accepts. It also includes `usdt_tron` and `usdt_ton`. They can be posted but no URI verifies them, and they are not on the public Destination types page. There is no `usdc_ton`.
 - Do not reintroduce `BrantaClientOptions`, `defaultApiKey`, `BrantaServerBaseUrl`, `QRParseException`, `Destination.zkId`, `Payment.btcPayServerPluginVersion`, or a two-argument `BrantaService` constructor.
 
 ## Package layout
