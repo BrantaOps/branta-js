@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- `POST /v2/payments` now sends an `X-Branta-SDK` header (language and SDK version). GETs are unchanged.
+
 ### Documentation
 - `hmacSecret` is documented. It signs `addPayment` for platforms with Require HMAC on. The README links to the HMAC signing docs.
 

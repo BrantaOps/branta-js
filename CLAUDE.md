@@ -13,6 +13,7 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - The token is `matchedDestinations[].type`, never the URI scheme.
 - A logo-domain mismatch throws. Every other lookup failure is a status.
 - `addPayment` encrypts a copy and leaves the caller's `Payment` unchanged.
+- The payment POST sends `X-Branta-SDK: <language>/<version>`. A GET never does. [SDK header](https://developer.branta.pro/tech/api/receive#sdk-header)
 - Keep parity with every 4.x Branta SDK. A public method added or changed here is mirrored in each of them.
 
 ## JS specifics
@@ -35,7 +36,7 @@ Invariants that break silently. Check them before you change `verify` or `addPay
 - `npm run build` — `tsc` emits ESM to `dist/`.
 - `npm test` — Jest with coverage. Requires `--experimental-vm-modules` (already in the script).
 - `npm run clean` — `rm -rf dist`.
-- Release: `npm login`, `npm version major|minor|patch` (bumps `package.json` and creates the `vX.Y.Z` tag locally), `npm publish`, then push the tag with `git push origin vX.Y.Z`. `prepublishOnly` rebuilds.
+- Release: `npm login`, `npm version major|minor|patch` (bumps `package.json` and creates the `vX.Y.Z` tag locally; the `SDK_VERSION` test in `test/services/brantaClient.test.ts` fails until `src/services/sdkVersion.ts` matches the new version), `npm publish`, then push the tag with `git push origin vX.Y.Z`. `prepublishOnly` rebuilds.
 
 ## Conventions
 - ESM-only (`"type": "module"` in `package.json`). Local imports must use `.js` extensions even from `.ts` files; Jest's `moduleNameMapper` strips them at test time.
