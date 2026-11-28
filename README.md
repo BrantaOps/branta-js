@@ -73,6 +73,8 @@ const brantaId = created.destinations[0].value;
 // branta_id is brantaId, URL-encoded. Link the sender to verifyUrl.
 ```
 
+`addPayment` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
+
 ### Brand
 
 A shared-key platform tags a payment with the payee's brand: a name plus optional logo URLs.
@@ -85,8 +87,6 @@ const payment = new PaymentBuilder()
 ```
 
 `setChildPlatform` and `payment.childPlatform` are the deprecated old names. They still work, and `setChildPlatform` calls `setBrand`. The SDK sends `brand`. A payload that carries `child_platform` instead is still read into both `brand` and `childPlatform`.
-
-`addPayment` accepts the types on [Destination types](https://developer.branta.pro/destination-types). Pass the type for stablecoins. A bare address is not auto-detected. `UsdtTron`, `UsdtTon`, `UsdtSolana`, and `UsdcSolana` also encrypt and post, but no URI verifies them.
 
 ### HMAC signing
 
