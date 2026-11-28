@@ -43,4 +43,10 @@ describe('publicApi', () => {
       expect(exported).not.toHaveProperty(name);
     }
   });
+
+  test('paymentBuilder_exposesSetBrandAndDeprecatedSetChildPlatform', () => {
+    const builder = new Branta.PaymentBuilder();
+    expect(typeof builder.setBrand).toBe('function');
+    expect(typeof builder.setChildPlatform).toBe('function');
+  });
 });

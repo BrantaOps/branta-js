@@ -42,9 +42,14 @@ export class PaymentBuilder {
     return this;
   }
 
-  setChildPlatform(name: string, logoUrl?: string, logoLightUrl?: string): this {
-    this.payment.childPlatform = { name, logoUrl, logoLightUrl };
+  setBrand(name: string, logoUrl?: string, logoLightUrl?: string): this {
+    this.payment.brand = { name, logoUrl, logoLightUrl };
     return this;
+  }
+
+  /** @deprecated Use `setBrand`. */
+  setChildPlatform(name: string, logoUrl?: string, logoLightUrl?: string): this {
+    return this.setBrand(name, logoUrl, logoLightUrl);
   }
 
   build(): Payment {

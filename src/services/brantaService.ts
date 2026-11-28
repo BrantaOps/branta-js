@@ -23,7 +23,7 @@ import { Destination } from '../models/destination.js';
 import { Payment } from '../models/payment.js';
 import { VerifyResult, VerifyStatus } from '../models/verifyResult.js';
 import { BrantaClient } from './brantaClient.js';
-import { foldDescriptionIntoMetadata, liftDescriptionFromMetadata } from './serialization.js';
+import { effectiveBrand, foldDescriptionIntoMetadata, liftDescriptionFromMetadata } from './serialization.js';
 
 class TamperedError extends Error {
   constructor() {
@@ -48,12 +48,17 @@ const toVerifyResult = (payments: Payment[], verifyUrl: string): VerifyResult =>
       };
 
 // Encrypt and post this copy. A failed post must leave the caller's Payment reusable.
-const copyPayment = (payment: Payment): Payment => ({
-  ...payment,
-  destinations: payment.destinations.map((destination) => ({ ...destination })),
-  parentPlatform: payment.parentPlatform === undefined ? undefined : { ...payment.parentPlatform },
-  childPlatform: payment.childPlatform === undefined ? undefined : { ...payment.childPlatform },
-});
+const copyPayment = (payment: Payment): Payment => {
+  const brand = effectiveBrand(payment);
+  return {
+    ...payment,
+    destinations: payment.destinations.map((destination) => ({ ...destination })),
+    parentPlatform: payment.parentPlatform === undefined ? undefined : { ...payment.parentPlatform },
+    brand: brand === undefined ? undefined : { ...brand },
+    // The deprecated field mirrors `brand` on the copy so both always agree.
+    childPlatform: brand === undefined ? undefined : { ...brand },
+  };
+};
 
 const addressesMatch = (a: string, b: string): boolean => {
   const isBech32 = (v: string): boolean => /^(bc|tb|bcrt)1/i.test(v);

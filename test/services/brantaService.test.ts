@@ -1365,6 +1365,61 @@ describe('BrantaService', () => {
       expect(submittedPayment().destinations[0]!.value).toBe(EncryptedBitcoinAddress);
     });
 
+    const respondWithEchoOf = (payment: Payment): void => {
+      clientMock.postPayment.mockResolvedValue({
+        destinations: payment.destinations.map((d) => ({ value: EncryptedBitcoinAddress, id: d.id })),
+      });
+    };
+
+    test('addPayment_brand_encryptedCopyCarriesBrandAndCallerPaymentUnchanged', async () => {
+      const payment = new PaymentBuilder()
+        .addDestination(BitcoinAddress)
+        .setBrand('Acme', 'https://example.com/logo.png')
+        .build();
+      const before = structuredClone(payment);
+      respondWithEchoOf(payment);
+
+      await service.addPayment(payment);
+
+      expect(payment).toEqual(before);
+      const submitted = submittedPayment();
+      expect(submitted).not.toBe(payment);
+      expect(submitted.brand).toEqual({ name: 'Acme', logoUrl: 'https://example.com/logo.png', logoLightUrl: undefined });
+      expect(submitted.brand).not.toBe(payment.brand);
+    });
+
+    test('addPayment_deprecatedChildPlatformOnly_copyIsNormalizedToBrandAndCallerUnchanged', async () => {
+      const payment: Payment = {
+        destinations: [{ value: BitcoinAddress, id: 'id-1' }],
+        childPlatform: { name: 'Old' },
+      };
+      const before = structuredClone(payment);
+      respondWithEchoOf(payment);
+
+      await service.addPayment(payment);
+
+      expect(payment).toEqual(before);
+      expect(payment.brand).toBeUndefined();
+      const submitted = submittedPayment();
+      expect(submitted.brand).toEqual({ name: 'Old' });
+      expect(submitted.brand).not.toBe(payment.childPlatform);
+    });
+
+    test('addPayment_bothBrandAndChildPlatform_copyBrandWins', async () => {
+      const payment: Payment = {
+        destinations: [{ value: BitcoinAddress, id: 'id-1' }],
+        brand: { name: 'New' },
+        childPlatform: { name: 'Old' },
+      };
+      respondWithEchoOf(payment);
+
+      await service.addPayment(payment);
+
+      expect(submittedPayment().brand).toEqual({ name: 'New' });
+      expect(payment.brand).toEqual({ name: 'New' });
+      expect(payment.childPlatform).toEqual({ name: 'Old' });
+    });
+
     test('addPayment_bolt11WithoutType_encryptsWithHash', async () => {
       const payment = new PaymentBuilder().addDestination(Bolt11Invoice).build();
       const id = payment.destinations[0]!.id!;
